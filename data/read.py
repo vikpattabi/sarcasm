@@ -39,6 +39,13 @@ def dataIterator():
          tokens = nlp(line[1])
          tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
          line[1] = tokens
+
+         tokens = nlp(line[9])
+         tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+         line[9] = tokens
+
+
+
 #         print(tokens)
          assert len(line) == 12, line
 #         print(len(line))
@@ -77,12 +84,12 @@ def readTrainingData():
       reads the training data
       Each line is split by |, and within that by whitespace.
    """
-   with bz2.BZ2File("data/main/train-balanced.csv.bz2", "r") as inFile:
+   with bz2.BZ2File("data/main/train-unbalanced.csv.bz2", "r") as inFile:
       for line in inFile:
          line = [x.split(" ") for x in line.decode("utf-8").strip().split("|")]
-         print(line)
+#         print(line)
          assert len(line) == 3
-         assert len(line[2]) == 2
+         assert len(line[2]) == len(line[1]), line
          yield line
 
 
