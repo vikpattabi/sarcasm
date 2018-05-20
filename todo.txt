@@ -1,0 +1,3 @@
+CS224U Final Project - Todos:
+
+-Set up Git repo
