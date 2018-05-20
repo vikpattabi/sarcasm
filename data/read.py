@@ -1,14 +1,10 @@
 import bz2
-
 import spacy
-
 
 #  python -m spacy download en
 
-
 from spacy.lang.en import English
 nlp = English()
-
 
 def dataIterator():
    """
@@ -73,7 +69,7 @@ def createVocabulary():
   for i in range(10000):
      for word in next(iterator)[1]:
         wordCounts[word] = wordCounts.get(word,0)+1
-  words = list(wordCounts.items())     
+  words = list(wordCounts.items())
   words = sorted(words, key=lambda x:-x[1])
   itos = [x[0] for x in words]
   stoi = dict([(itos[i], i) for i in range(len(itos))])
@@ -91,5 +87,3 @@ def readTrainingData():
          assert len(line) == 3
          assert len(line[2]) == len(line[1]), line
          yield line
-
-
