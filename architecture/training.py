@@ -2,7 +2,7 @@ import random
 import torch
 from utils import START_TOKEN, END_TOKEN
 
-def train_example(input, output, language, encoder, decoder, encoder_optimizer, decoder_optimizer, params, loss_fn):
+def train_example(input, output, encoder, decoder, encoder_optimizer, decoder_optimizer, params, loss_fn):
     encoder_hidden = encoder.initHidden()
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
@@ -40,5 +40,27 @@ def train_example(input, output, language, encoder, decoder, encoder_optimizer, 
     return loss.item() / target_length
 
 def run_training_loop(params, encoder, decoder):
-    lr = params.learning_rate
+    learning_rate = params.learning_rate
     n_iters = params.n_iters
+
+    encoder_optimizer = None
+    decoder_optimizer = None
+    if config.optimizer == 'Adam':
+        encoder_optimizer = optim.Adam(encoder.parameters(), lr = learning_rate)
+        decoder_optimizer = optim.Adam(decoder.parameters(), lr = learning_rate)
+    else:
+        encoder_optimizer = optim.SGD(encoder.parameters(), lr = learning_rate)
+        decoder_optimizer = optim.SGD(decoder.parameters(), lr = learning_rate)
+
+    loss_fn = nn.NLLLoss() # Why this one, TODO: We should think more about this...
+    training_pairs = #TODO: Fill this in...
+
+    for i in range(n_iters):
+        pair = training_pairs[i]
+        input = pair[0]
+        target = pair[1]
+
+        loss = train_example(input, target, encoder, decoder, encoder_optimizer, decoder_optimizer, params, loss_fn)
+
+        if i % params.print_every == 0:
+            print('Iteration %d of %d, loss is: %.4f' % (i, n_iters, loss))
