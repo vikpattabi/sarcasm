@@ -6,11 +6,11 @@ import spacy
 from spacy.lang.en import English
 nlp = English()
 
-def dataIterator():
+def dataIterator(doTokenization=True, printProblems=True):
    """
       reads the large CSV file
    """
-   with bz2.BZ2File("data/raw/sarc_09-12.csv.bz2", "r") as inFile:
+   with bz2.BZ2File("data/raw/sarc.csv.bz2", "r") as inFile:
       while True:
          line = []
          while len(line) < 12:
@@ -23,7 +23,8 @@ def dataIterator():
             else:
               line = line2
          if len(line) > 12:
-            print(line)
+            if printProblems:
+               print(line)
             continue
 
 #         while len(line) > 12:
@@ -32,13 +33,14 @@ def dataIterator():
 #         print(line)
          if len(line) < 2:
             continue
-         tokens = nlp(line[1])
-         tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
-         line[1] = tokens
-
-         tokens = nlp(line[9])
-         tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
-         line[9] = tokens
+         if doTokenization:
+            tokens = nlp(line[1])
+            tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+            line[1] = tokens
+   
+            tokens = nlp(line[9])
+            tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+            line[9] = tokens
 
 
 
@@ -60,20 +62,42 @@ def readComments():
   return comments
 
 
-def createVocabulary():
+def createAndStoreVocabulary(save_period):
+  wordCounts = {}
+  iterator = dataIterator()
+  i = 0
+  while True:
+     i += 1
+     if i % 5000 == 0:
+        print(i)
+     for word in next(iterator)[1]:
+        wordCounts[word] = wordCounts.get(word,0)+1
+     if i % save_period == 0:
+        print("SAVING")
+        words = list(wordCounts.items())
+        words = sorted(words, key=lambda x:-x[1])
+        itos = [x[0] for x in words]
+      
+        with open("data/processed/vocabulary.tsv", "w") as outFile:
+            for line in itos:
+               print(line, file=outFile)
+
+def createVocabulary(maximum_comments=10000):
   """
      creates the vocabulary, sorted descendingly by frequency in the large CSV file (currently only the first 10000 sentences)
   """
   wordCounts = {}
   iterator = dataIterator()
-  for i in range(10000):
+  for i in range(maximum_comments):
+     if i % 5000 == 0:
+        print(i)
      for word in next(iterator)[1]:
         wordCounts[word] = wordCounts.get(word,0)+1
   words = list(wordCounts.items())
   words = sorted(words, key=lambda x:-x[1])
   itos = [x[0] for x in words]
-  stoi = dict([(itos[i], i) for i in range(len(itos))])
-  return itos, stoi
+#  stoi = dict([(itos[i], i) for i in range(len(itos))])
+  return itos #, stoi
 
 def readTrainingData():
    """
