@@ -21,4 +21,4 @@ class embeddingModel(nn.module):
         return torch.zeros(1, self.hidden_size)
 
     def sampleFromVocab():
-        return 
+        pass
