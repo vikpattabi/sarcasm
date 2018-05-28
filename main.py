@@ -13,6 +13,3 @@
 # comments = read.readComments()
 # for comment in comments:
 #    print(comment)
-
-def train(language, encoder, attentionDecoder, encoder_optimizer, decoder_optimizer):
-    pass
