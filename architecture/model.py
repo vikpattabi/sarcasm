@@ -1,16 +1,22 @@
 import torch.nn as nn
 
+MAX_LENGTH=50
+
+def embeddings(vocab_size, embedding_size):
+  return nn.Embedding(vocab_size, embedding_size)
+
 class encoderRNN(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, hidden_size=200, embedding_size=20, embeddings=None):
         super(encoderRNN, self).__init__()
 
         self.hidden_size = hidden_size
-
-        self.embedding = nn.Embedding(input_size, hidden_size)
+        self.embedding_size = embedding_size
+       
+        self.embedding = embeddings
         self.gru = nn.GRU(hidden_size, hidden_size)
 
     def forward(self, input, hidden):
-        embedded = self.embedding(input).view(1, 1, -1)
+        embedded = self.embedding(input).view(len(input), -1, self.embedding_size)
         output = embedded
         output, hidden = self.gru(output, hidden)
         return output, hidden
@@ -19,20 +25,23 @@ class encoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 class decoderRNN(nn.Module):
-    def __init__(self, hidden_size, output_size):
+    def __init__(self, hidden_size=200, embedding_size=200, embeddings=None, vocab_size=10000+3):
         super(decoderRNN, self).__init__()
-        self.hidden_size = hidden_size
 
-        self.embedding = nn.Embedding(output_size, hidden_size)
+        self.hidden_size = hidden_size
+        self.embedding_size = embedding_size
+       
+        self.embedding = embeddings
         self.gru = nn.GRU(hidden_size, hidden_size)
-        self.out = nn.Linear(hidden_size, output_size)
-        self.softmax = nn.LogSoftmax(dim=1)
+
+        self.out = nn.Linear(hidden_size, vocab_size)
+        self.softmax = nn.LogSoftmax(dim=2)
 
     def forward(self, input, hidden):
-        output = self.embedding(input).view(1, 1, -1)
-        output = functional.relu(output)
-        output, hidden = self.gru(output, hidden)
-        output = self.softmax(self.out(output[0]))
+        embedded = self.embedding(input).view(len(input), -1, self.embedding_size)
+        #output = functional.relu(output)
+        output, hidden = self.gru(embedded, hidden)
+        output = self.softmax(self.out(output))
         return output, hidden
 
     def initHidden(self):

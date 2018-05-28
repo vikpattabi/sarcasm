@@ -82,22 +82,14 @@ def createAndStoreVocabulary(save_period):
             for line in itos:
                print(line, file=outFile)
 
-def createVocabulary(maximum_comments=10000):
+def createVocabulary(vocab_size=10000):
   """
      creates the vocabulary, sorted descendingly by frequency in the large CSV file (currently only the first 10000 sentences)
   """
-  wordCounts = {}
-  iterator = dataIterator()
-  for i in range(maximum_comments):
-     if i % 5000 == 0:
-        print(i)
-     for word in next(iterator)[1]:
-        wordCounts[word] = wordCounts.get(word,0)+1
-  words = list(wordCounts.items())
-  words = sorted(words, key=lambda x:-x[1])
-  itos = [x[0] for x in words]
-#  stoi = dict([(itos[i], i) for i in range(len(itos))])
-  return itos #, stoi
+  with open("data/processed/vocabulary.tsv", "r") as inFile:
+     itos = inFile.read().strip().split("\n")[:vocab_size]
+  stoi = dict([(itos[i], i) for i in range(len(itos))])
+  return itos , stoi
 
 def readTrainingData():
    """
@@ -111,3 +103,29 @@ def readTrainingData():
          assert len(line) == 3
          assert len(line[2]) == len(line[1]), line
          yield line
+
+
+def readProcessedTrainingData():
+   with open("data/processed/partial0-40000000", "r") as data:
+      for line in data:
+          if len(line) > 1:
+             line = line.strip().split("###SARCASTIC_RESPONSE###")
+             for response in line:
+                if len(response) == 0:
+                    continue
+                response = response.split("\t")
+                assert len(response) == 12, response
+                tokens = nlp(response[1])
+                tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+                response[1] = tokens
+       
+                tokens = nlp(response[9])
+                tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+                response[9] = tokens
+ 
+
+                yield response
+
+
+
+
