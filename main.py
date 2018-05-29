@@ -48,7 +48,7 @@ print("Length of training set "+str(len(training_data)))
 import torch
 
 
-useGlove = False
+useGlove = True
 
 embeddings = model.embeddings(vocab_size=10000+3, embedding_size=100).cuda()
 
