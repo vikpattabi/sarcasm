@@ -107,7 +107,7 @@ def readTrainingData():
 
 
 def readProcessedTrainingData():
-   with open("data/processed/partial0-190000000", "r") as data:
+   with open("data/processed/partial0-220000000", "r") as data:
       for line in data:
           if len(line) > 1:
              line = line.strip().split("###SARCASTIC_RESPONSE###")
