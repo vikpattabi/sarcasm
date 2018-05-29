@@ -48,15 +48,23 @@ print("Length of training set "+str(len(training_data)))
 import torch
 
 
+useGlove = False
 
+embeddings = model.embeddings(vocab_size=10000+3, embedding_size=100).cuda()
 
-embeddings = model.embeddings(vocab_size=10000+3, embedding_size=200).cuda()
-embeddings.data = torch.FloatTensor(read.loadGloveEmbeddings(stoi)).cuda()
+if useGlove:
+   embeddings.weight.data.copy_(torch.FloatTensor(read.loadGloveEmbeddings(stoi)).cuda())
 
 print("Read embeddings")
 
-encoder = model.encoderRNN(hidden_size=200, embedding_size=200, embeddings=embeddings).cuda()
-decoder = model.decoderRNN(hidden_size=200, embedding_size=200, embeddings=embeddings, vocab_size=10000+3).cuda()
+
+useAttention = False #True
+
+encoder = model.encoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings).cuda()
+if useAttention:
+  decoder = model.attentionDecoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3).cuda()
+else:
+  decoder = model.decoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3).cuda()
 lossModule = torch.nn.NLLLoss()
 lossModuleNoAverage = torch.nn.NLLLoss(size_average=False)
 
@@ -92,17 +100,19 @@ batchSize = 16
 def predictFromInput(input_sentence):
    input = encode_sentence(input_sentence)
    
-   _, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
+   encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
    generated = [torch.LongTensor([0]).cuda()]
    generated_words = []
    while True:
       input = generated[-1]
  #     print(input.size())
-      output, hidden = decoder.forward(input, hidden)
-#      print(output.size())
-#      _, predicted = torch.max(output, 2)
+      if not useAttention:
+         output, hidden = decoder.forward(input, hidden)
+      else:
+         output, hidden, attention = decoder.forward(input, hidden, encoder_outputs=encoder_outputs)
+         output = output[0].view(1,1,-1)
+#         print(attention[0].view(-1))
       _, predicted = torch.topk(output, 2, dim=2)
-#      print(predicted)
       predicted = predicted.data.cpu().view(2).numpy()
       if predicted[0] == 2:
           predicted = predicted[1]
@@ -113,7 +123,7 @@ def predictFromInput(input_sentence):
 #      print(predicted_numeric)
 #      print(generated_words)
       if predicted_numeric == 1 or predicted_numeric == 0 or len(generated_words) > 100:
-         return generated_words
+         return " ".join(generated_words)
       elif predicted_numeric ==2:
         generated_words.append("OOV")
       else:
@@ -128,6 +138,8 @@ training_data = training_data[1000:]
 
 devLosses = []
 
+
+
 for epoch in range(1000):
    random.shuffle(training_data)
    
@@ -141,12 +153,21 @@ for epoch in range(1000):
       embeddings_optimizer.zero_grad()
    
 
-      _, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
-      output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), None)
-      output = output.view(-1, 10000+3)
+      encoder_outputs, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
+
       target = torch.LongTensor(dataPoint[comment_index][1:]).view(-1).cuda()
 
-      loss = lossModule(output, target)
+      if not useAttention:
+         output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden)
+         output = output.view(-1, 10000+3)
+         loss = lossModule(output, target)
+      else:
+         outputs, _, attentions = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden, encoder_outputs=encoder_outputs)
+         loss = 0
+         for i in range(len(outputs)):
+            loss += lossModule(outputs[i].view(1,10000+3), target[i].view(1))
+         loss /= len(outputs)
+
       crossEntropy = 0.99 * crossEntropy + (1-0.99) * loss.data.cpu().numpy()
    
       loss.backward()
@@ -171,7 +192,7 @@ for epoch in range(1000):
       numberOfWords += len(dataPoint[comment_index])-1
 
       _, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
-      output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), None)
+      output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden)
       output = output.view(-1, 10000+3)
       target = torch.LongTensor(dataPoint[comment_index][1:]).view(-1).cuda()
 

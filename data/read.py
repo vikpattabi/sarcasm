@@ -130,7 +130,7 @@ def readProcessedTrainingData():
 import random
 
 def loadGloveEmbeddings(stoi):
-   embeddings = [None for _ in stoi]
+   embeddings = [None, None, None] + [None for _ in stoi]
    zipFile = zipfile.ZipFile("data/embeddings/glove.6B.zip", "r")
    counter = 0
    with zipFile.open("glove.6B.100d.txt", "r") as inFile:
@@ -143,7 +143,7 @@ def loadGloveEmbeddings(stoi):
           word = line[0]
           embedding = list(map(float,line[1:]))
           if word in stoi:
-             embeddings[stoi[word]] = embedding
+             embeddings[stoi[word]+3] = embedding
    for i in range(len(embeddings)):
        if embeddings[i] is None:
           embeddings[i] = [random.uniform(-0.01, 0.01) for _ in range(100)]
