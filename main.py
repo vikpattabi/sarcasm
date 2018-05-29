@@ -58,7 +58,7 @@ if useGlove:
 print("Read embeddings")
 
 
-useAttention = False #True
+useAttention = True
 
 encoder = model.encoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings).cuda()
 if useAttention:
@@ -89,12 +89,6 @@ else:
     encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr = learning_rate)
     decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr = learning_rate)
     embeddings_optimizer = torch.optim.SGD(embeddings.parameters(), lr = learning_rate)
-
-batchSize = 16
-
-#training_partitions = range(len(training_data)/batchSize)
-#
-#shuffle(training_partitions)
 
 
 def predictFromInput(input_sentence):
@@ -138,9 +132,14 @@ training_data = training_data[1000:]
 
 devLosses = []
 
-
+#batchSize = 16
+#training_partitions = range(len(training_data)/batchSize)
 
 for epoch in range(1000):
+
+   #shuffle(training_partitions)
+
+
    random.shuffle(training_data)
    
    steps = 0
