@@ -64,7 +64,11 @@ for comment in read.dataIterator(doTokenization=False, printProblems=False):
         if id_of_sentence in dataPoint[1]:
             dataPoint[1][dataPoint[1].index(id_of_sentence)] = comment
         else:
-            assert False
+            print(("WARNING", id_of_sentence, dataPoint))
+
+
+
+#            assert False
    #     print(dataPoint)
 #   elif comment[link_id_index] in comments_code_to_text:
 # #       print("ID")

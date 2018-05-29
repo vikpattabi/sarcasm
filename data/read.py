@@ -1,5 +1,6 @@
 import bz2
 import spacy
+import zipfile
 
 #  python -m spacy download en
 
@@ -106,7 +107,7 @@ def readTrainingData():
 
 
 def readProcessedTrainingData():
-   with open("data/processed/partial0-40000000", "r") as data:
+   with open("data/processed/partial0-190000000", "r") as data:
       for line in data:
           if len(line) > 1:
              line = line.strip().split("###SARCASTIC_RESPONSE###")
@@ -126,6 +127,25 @@ def readProcessedTrainingData():
 
                 yield response
 
+import random
 
-
+def loadGloveEmbeddings(stoi):
+   embeddings = [None for _ in stoi]
+   zipFile = zipfile.ZipFile("data/embeddings/glove.6B.zip", "r")
+   counter = 0
+   with zipFile.open("glove.6B.100d.txt", "r") as inFile:
+      for line in inFile:
+          counter += 1
+          if counter % 50000 == 0:
+              break
+              print(counter)
+          line = line.decode("utf8").split(" ")
+          word = line[0]
+          embedding = list(map(float,line[1:]))
+          if word in stoi:
+             embeddings[stoi[word]] = embedding
+   for i in range(len(embeddings)):
+       if embeddings[i] is None:
+          embeddings[i] = [random.uniform(-0.01, 0.01) for _ in range(100)]
+   return embeddings
 

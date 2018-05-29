@@ -35,6 +35,7 @@ class decoderRNN(nn.Module):
         self.gru = nn.GRU(hidden_size, hidden_size)
 
         self.out = nn.Linear(hidden_size, vocab_size)
+        self.out.data = self.embedding.data.transpose(0,1)
         self.softmax = nn.LogSoftmax(dim=2)
 
     def forward(self, input, hidden):
