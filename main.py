@@ -63,7 +63,7 @@ if useGlove:
 print("Read embeddings")
 
 
-useAttention = False
+useAttention = True
 
 encoder = model.encoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings).cuda()
 if useAttention:
@@ -104,13 +104,11 @@ def predictFromInput(input_sentence):
    generated_words = []
    while True:
       input = generated[-1]
- #     print(input.size())
       if not useAttention:
          output, hidden = decoder.forward(input, hidden)
       else:
-         output, hidden, attention = decoder.forward(input, hidden, encoder_outputs=encoder_outputs)
-         output = output[0].view(1,1,-1)
-#         print(attention[0].view(-1))
+         output, hidden, attention = decoder.forward(input.view(1,1), hidden, encoder_outputs=encoder_outputs)
+         print(attention[0].view(-1).data.cpu().numpy()[:])
       _, predicted = torch.topk(output, 2, dim=2)
       predicted = predicted.data.cpu().view(2).numpy()
       if predicted[0] == 2:
@@ -119,8 +117,6 @@ def predictFromInput(input_sentence):
          predicted = predicted[0]
       
       predicted_numeric = predicted
-#      print(predicted_numeric)
-#      print(generated_words)
       if predicted_numeric == 1 or predicted_numeric == 0 or len(generated_words) > 100:
          return " ".join(generated_words)
       elif predicted_numeric ==2:
@@ -140,6 +136,15 @@ devLosses = []
 batchSize = 16
 training_partitions = list(range(int(len(training_data)/batchSize)))
 
+def collectAndPadInput(current, index):
+      maxLength = max([len(x[index]) for x in current])
+      context_sentence = []
+      for i in range(maxLength):
+         context_sentence.append([x[index][i] if i < len(x[index]) else 0 for x in current])
+      return context_sentence
+
+
+
 for epoch in range(1000):
 
    random.shuffle(training_partitions)
@@ -156,17 +161,8 @@ for epoch in range(1000):
       embeddings_optimizer.zero_grad()
    
 
-      maxLength = max([len(x[parent_index]) for x in current])
-      context_sentence = []
-      for i in range(maxLength):
-         context_sentence.append([x[parent_index][i] if i < len(x[parent_index]) else 0 for x in current])
-
-      maxLength_response = max([len(x[comment_index]) for x in current])
-      response_sentence = []
-      for i in range(maxLength_response):
-         response_sentence.append([x[comment_index][i] if i < len(x[comment_index]) else 0 for x in current])
-
-
+      context_sentence = collectAndPadInput(current, parent_index)
+      response_sentence = collectAndPadInput(current, comment_index)
 
 
       encoder_outputs, hidden = encoder.forward(torch.LongTensor(context_sentence).cuda(), None)
@@ -176,15 +172,11 @@ for epoch in range(1000):
 
       if not useAttention:
          output, _ = decoder.forward(response[:-1], hidden)
-         output = output.view(-1, 10000+3)
-         loss = lossModule(output, response[1:].view(-1))
       else:
-         outputs, _, attentions = decoder.forward(response[:-1], hidden, encoder_outputs=encoder_outputs)
-         loss = 0
-         target = response[1:]
-         for i in range(len(outputs)):
-            loss += lossModule(outputs[i].view(1,10000+3), target[i].view(1))
-         loss /= len(outputs)
+         output, _, attentions = decoder.forward(response[:-1], hidden, encoder_outputs=encoder_outputs)
+
+      loss = lossModule(output.view(-1, 10000+3), response[1:].view(-1))
+
 
       crossEntropy = 0.99 * crossEntropy + (1-0.99) * loss.data.cpu().numpy()
    
@@ -201,6 +193,7 @@ for epoch in range(1000):
           print(predictFromInput(["This", "article", "is", "awesome", "."]))
           print(predictFromInput(["Bankers", "celebrate", "the", "start", "of", "the", "Trump", "era", "."]))
 
+   print("Running on dev")
    steps = 0
    totalLoss = 0
    numberOfWords = 0
@@ -209,12 +202,15 @@ for epoch in range(1000):
    
       numberOfWords += len(dataPoint[comment_index])-1
 
-      _, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
-      output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden)
-      output = output.view(-1, 10000+3)
+      encoder_outputs, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
       target = torch.LongTensor(dataPoint[comment_index][1:]).view(-1).cuda()
 
-      loss = lossModuleNoAverage(output, target)
+      if not useAttention:
+         output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden)
+      else:
+         output, _, attentions = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).view(-1,1).cuda(), hidden, encoder_outputs=encoder_outputs)
+      loss = lossModuleNoAverage(output.view(-1, 10000+3), target.view(-1))
+
       crossEntropy = 0.99 * crossEntropy + (1-0.99) * loss.data.cpu().numpy()
       totalLoss +=  loss.data.cpu().numpy()
    devLosses.append(totalLoss/numberOfWords)
@@ -223,75 +219,4 @@ for epoch in range(1000):
        print("Overfitting, stop")
        break
 
-# without minibatching
- 
-for epoch in range(1000):
 
-
-
-   random.shuffle(training_data)
-   
-   steps = 0
-   crossEntropy = 10
-   for dataPoint in training_data:
-      steps += 1
-      
-      encoder_optimizer.zero_grad()
-      decoder_optimizer.zero_grad()
-      embeddings_optimizer.zero_grad()
-   
-
-      encoder_outputs, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
-
-      target = torch.LongTensor(dataPoint[comment_index][1:]).view(-1).cuda()
-
-      if not useAttention:
-         output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden)
-         output = output.view(-1, 10000+3)
-         loss = lossModule(output, target)
-      else:
-         outputs, _, attentions = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden, encoder_outputs=encoder_outputs)
-         loss = 0
-         for i in range(len(outputs)):
-            loss += lossModule(outputs[i].view(1,10000+3), target[i].view(1))
-         loss /= len(outputs)
-
-      crossEntropy = 0.99 * crossEntropy + (1-0.99) * loss.data.cpu().numpy()
-   
-      loss.backward()
-      encoder_optimizer.step()
-      decoder_optimizer.step()
-      embeddings_optimizer.step()
-   
-   
-      if steps % 1000 == 0:
-          print((epoch,steps,crossEntropy))
-          print(devLosses)
-          print(predictFromInput(["This", "article", "is", "such", "BS", "."]))
-          print(predictFromInput(["This", "article", "is", "awesome", "."]))
-          print(predictFromInput(["Bankers", "celebrate", "the", "start", "of", "the", "Trump", "era", "."]))
-
-   steps = 0
-   totalLoss = 0
-   numberOfWords = 0
-   for dataPoint in held_out_data:
-      steps += 1
-   
-      numberOfWords += len(dataPoint[comment_index])-1
-
-      _, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
-      output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden)
-      output = output.view(-1, 10000+3)
-      target = torch.LongTensor(dataPoint[comment_index][1:]).view(-1).cuda()
-
-      loss = lossModuleNoAverage(output, target)
-      crossEntropy = 0.99 * crossEntropy + (1-0.99) * loss.data.cpu().numpy()
-      totalLoss +=  loss.data.cpu().numpy()
-   devLosses.append(totalLoss/numberOfWords)
-   print(devLosses)
-   if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
-       print("Overfitting, stop")
-
-
-
-     

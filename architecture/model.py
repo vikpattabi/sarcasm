@@ -74,46 +74,64 @@ class attentionDecoderRNN(nn.Module):
 #        self.out.weight.data.copy_(self.embedding.weight.data) # .transpose(0,1) # for this, we would need to match up embedding and hidden dimensions
 
     def forward(self, input, hidden, encoder_outputs):
-        embedded = self.embedding(input).view(len(input), 1, self.embedding_size)
-#        embedded = self.dropout(embedded)
+
+        batchSize = input.size()[1]
+        length_of_target = input.size()[0]
 
         length_of_source = encoder_outputs.size()[0]
+        encoder_outputs = encoder_outputs.transpose(0,1) # now: batchSize x length_of_source
 
-        attention_hidden_3 = self.attn_hidden_3(embedded)
+        embedded = self.embedding(input).view(length_of_target, batchSize, self.embedding_size)
+#        embedded = self.dropout(embedded)
+
+
+        attention_hidden_3 = self.attn_hidden_3(embedded) # length_of_target x batchSize x 100
      #   print(attention_hidden_3.size())
-        attention_hidden_2 = self.attn_hidden_2(encoder_outputs)
+        attention_hidden_2 = self.attn_hidden_2(encoder_outputs) # batchSize x length_of_source x 100
     #    print(attention_hidden_2.size())
 
         outputs = []
         attentions = []
-        for i in range(len(input)):
+        for i in range(length_of_target):
           
 #           print(encoder_outputs.size())
-           attention_hidden_1 = self.attn_hidden_1(hidden.view(1,-1)).unsqueeze(0)
+
+#           print(hidden.size()) # 1 x batchSize x 200
+
+           attention_hidden_1 = self.attn_hidden_1(hidden) # 1 x batchSize x 100 
    #        print(attention_hidden_1.size())
 
-           attention_hidden = F.relu(attention_hidden_1 + attention_hidden_2 + attention_hidden_3[i].unsqueeze(0))
+           attention_hidden = F.relu(attention_hidden_1.squeeze(0).unsqueeze(1) + attention_hidden_2 + attention_hidden_3[i].unsqueeze(1)) # length_of_source x batchSize x 100
+
            attention_logits = self.attn(attention_hidden) #.view(length_of_source, 1).view(-1) # TODO for minibatching, will we need to transpose this before softmaxing?
+           #  batchSize x length_of_source x 1
+
   #         print(attention_logits.size())
 
-           attention = F.softmax(attention_logits).view(1,1,-1)
+           attention = F.softmax(attention_logits, dim=1).view(batchSize, 1, length_of_source)
 #           print(attention)
+
 #           print(combined.size())
 #           print(encoder_outputs.size())
 
-           attn_applied = torch.bmm(attention, encoder_outputs.view(1,-1,self.hidden_size)) #.view(length_of_source, 1, self.hidden_size))
+           attn_applied = torch.bmm(attention, encoder_outputs) #.view(1,-1,self.hidden_size)) #.view(length_of_source, 1, self.hidden_size))
+           # batchSize x 1 x self.hidden_size
+
  #          print(attn_applied.size())
  
-           output = torch.cat((embedded[i], attn_applied.squeeze(0)), 1).unsqueeze(0)
+           output = torch.cat((embedded[i], attn_applied.squeeze(1)), 1).unsqueeze(0)
 #           output = self.attn_combine(output).unsqueeze(0)
 #   
 #           output = F.relu(output)
            output, hidden = self.gru(output, hidden)
-   
-           output = F.log_softmax(self.out(output[0]), dim=1)
+           # output : 1 x batchSize x 200
+  
+           output = F.log_softmax(self.out(output.squeeze(0)), dim=1)
            outputs.append(output)
            attentions.append(attention)
      #      quit()
+        outputs = torch.cat([x.unsqueeze(0) for x in outputs], dim=0)
+#        print(outputs.size())
         return outputs, hidden, attentions
 
     def initHidden(self):
