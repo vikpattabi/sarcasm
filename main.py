@@ -6,39 +6,12 @@ from data import read
 from architecture import model
 
 
-with open("data/raw/key.csv", "r") as inFile:
-  keys = inFile.read().strip().split("\t")
-
-
+# itos is a list of words
+# stoi (dict) maps words (strings) to their position in itos (int)
 itos, stoi = read.createVocabulary(vocab_size=10000)
 print("Read dictionary")
 
-
-
-# 0 is Start-of-sentence (+ padding for minibatching), 1 is end-of-sentence, 2 is out-of-vocabulary
-def encode_token(token):
-   if token in stoi:
-      return stoi[token]+3
-   else:
-      return 2
-
-def encode_sentence(sentence):
-   return [0]+[encode_token(x) for x in sentence]+[1]
-
-
-
-training_data = []
-
-comment_index = keys.index("comment")
-parent_index = keys.index("parent_comment")
-for dataPoint in read.readProcessedTrainingData():
-    dataPoint[comment_index] = encode_sentence(dataPoint[comment_index])
-    dataPoint[parent_index] = encode_sentence(dataPoint[parent_index])
-    training_data.append(dataPoint)
-
-
-held_out_data = training_data[:1000]
-training_data = training_data[1000:]
+training_data, held_out_data = read.readTrainingAndDevData(stoi)
 
 
 
@@ -97,7 +70,7 @@ else:
 
 
 def predictFromInput(input_sentence):
-   input = encode_sentence(input_sentence)
+   input = read.encode_sentence(input_sentence, stoi)
    
    encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
    generated = [torch.LongTensor([0]).cuda()]
@@ -126,6 +99,10 @@ def predictFromInput(input_sentence):
       generated.append(torch.LongTensor([predicted_numeric]).cuda())
 
 
+comment_index = read.keys.index("comment")
+parent_index = read.keys.index("parent_comment")
+
+
 training_data = sorted(training_data, key = lambda x:(len(x[comment_index]), len(x[parent_index])))
 held_out_data = sorted(held_out_data, key = lambda x:(len(x[comment_index]), len(x[parent_index])))
 
@@ -133,7 +110,8 @@ held_out_data = sorted(held_out_data, key = lambda x:(len(x[comment_index]), len
 
 devLosses = []
 
-batchSize = 16
+batchSize = 32
+
 training_partitions = list(range(int(len(training_data)/batchSize)))
 
 def collectAndPadInput(current, index):
@@ -149,6 +127,8 @@ for epoch in range(1000):
 
    random.shuffle(training_partitions)
 
+   encoder.train(True) # set to training mode (make sure dropout is turned on again after running on dev set)
+   decoder.train(True)
   
    steps = 0
    crossEntropy = 10
@@ -194,6 +174,8 @@ for epoch in range(1000):
           print(predictFromInput(["Bankers", "celebrate", "the", "start", "of", "the", "Trump", "era", "."]))
 
    print("Running on dev")
+   encoder.train(False)
+   decoder.train(False)
    steps = 0
    totalLoss = 0
    numberOfWords = 0
@@ -217,6 +199,6 @@ for epoch in range(1000):
    print(devLosses)
    if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
        print("Overfitting, stop")
-       break
+       quit()
 
 

@@ -7,6 +7,11 @@ import zipfile
 from spacy.lang.en import English
 nlp = English()
 
+with open("data/raw/key.csv", "r") as inFile:
+  keys = inFile.read().strip().split("\t")
+
+
+
 def dataIterator(doTokenization=True, printProblems=True):
    """
       reads the large CSV file
@@ -149,3 +154,33 @@ def loadGloveEmbeddings(stoi):
           embeddings[i] = [random.uniform(-0.01, 0.01) for _ in range(100)]
    return embeddings
 
+
+# 0 is Start-of-sentence (+ padding for minibatching), 1 is end-of-sentence, 2 is out-of-vocabulary
+def encode_token(token, stoi):
+   if token in stoi:
+      return stoi[token]+3
+   else:
+      return 2
+
+
+
+def encode_sentence(sentence, stoi):
+   return [0]+[encode_token(x, stoi) for x in sentence]+[1]
+
+# Reads training data with words replaced by ints, as given in the dict passed as argument
+def readTrainingAndDevData(stoi):
+  training_data = []
+  
+  comment_index = keys.index("comment")
+  parent_index = keys.index("parent_comment")
+  for dataPoint in readProcessedTrainingData():
+      dataPoint[comment_index] = encode_sentence(dataPoint[comment_index], stoi)
+      dataPoint[parent_index] = encode_sentence(dataPoint[parent_index], stoi)
+      training_data.append(dataPoint)
+  
+  
+  held_out_data = training_data[:1000]
+  training_data = training_data[1000:]
+
+  return training_data, held_out_data  
+  
