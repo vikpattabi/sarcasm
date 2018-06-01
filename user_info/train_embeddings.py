@@ -57,3 +57,10 @@ class userEmbeddings:
 
         with open(filename, 'w') as f:
             json.dump(res, f)
+
+    def get(self, user):
+        if user in self.embeddings.keys():
+            return self.embeddings.embedding
+        else:
+            print('User ' + str(user) + ' not found.')
+            return None
