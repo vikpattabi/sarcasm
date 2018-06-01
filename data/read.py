@@ -2,6 +2,9 @@ import bz2
 import spacy
 import zipfile
 
+
+import random
+
 #  python -m spacy download en
 
 from spacy.lang.en import English
@@ -79,14 +82,14 @@ def createAndStoreVocabulary(save_period):
      for word in next(iterator)[1]:
         wordCounts[word] = wordCounts.get(word,0)+1
      if i % save_period == 0:
-        print("SAVING")
+        print("SAVING "+"data/processed/vocabulary-with-counts.tsv")
         words = list(wordCounts.items())
         words = sorted(words, key=lambda x:-x[1])
-        itos = [x[0] for x in words]
+#        itos = [x[0] for x in words]
       
-        with open("data/processed/vocabulary.tsv", "w") as outFile:
-            for line in itos:
-               print(line, file=outFile)
+        with open("data/processed/vocabulary-with-counts.tsv", "w") as outFile:
+            for line in words:
+               print(line[0]+"\t"+str(line[1]), file=outFile)
 
 def createVocabulary(vocab_size=10000):
   """
@@ -111,7 +114,28 @@ def readTrainingData():
          yield line
 
 
+
 def readProcessedTrainingData():
+   with open("data/processed/all-sarcastic-200K.tsv", "r") as data:
+      for response in data:
+                response = response.split("\t")
+                assert len(response) == 12, response
+                if len(response[9]) < 2:
+                    continue
+                tokens = nlp(response[1])
+                tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+                response[1] = tokens
+       
+                tokens = nlp(response[9])
+                tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+                response[9] = tokens
+                
+ 
+
+                yield response
+
+
+def readProcessedTrainingDataOld():
    with open("data/processed/partial0-220000000", "r") as data:
       for line in data:
           if len(line) > 1:
@@ -162,9 +186,10 @@ def encode_token(token, stoi):
    else:
       return 2
 
-
+maximumAllowedLength = 40
 
 def encode_sentence(sentence, stoi):
+   sentence = sentence[:maximumAllowedLength]
    return [0]+[encode_token(x, stoi) for x in sentence]+[1]
 
 # Reads training data with words replaced by ints, as given in the dict passed as argument
@@ -173,12 +198,16 @@ def readTrainingAndDevData(stoi):
   
   comment_index = keys.index("comment")
   parent_index = keys.index("parent_comment")
+  counter = 0
   for dataPoint in readProcessedTrainingData():
+      counter += 1
+      if counter % 10000 == 0:
+          print(counter) 
       dataPoint[comment_index] = encode_sentence(dataPoint[comment_index], stoi)
       dataPoint[parent_index] = encode_sentence(dataPoint[parent_index], stoi)
       training_data.append(dataPoint)
   
-  
+  random.Random(5).shuffle(training_data)
   held_out_data = training_data[:1000]
   training_data = training_data[1000:]
 

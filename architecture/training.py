@@ -5,6 +5,8 @@ import torch
 from data import read
 
 def collectAndPadInput(current, index):
+      maximumAllowedLength = 50
+#      current = [x[:] for x in current]
       maxLength = max([len(x[index]) for x in current])
       context_sentence = []
       for i in range(maxLength):
@@ -19,7 +21,7 @@ parent_index = read.keys.index("parent_comment")
 
 
 
-def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=32, learning_rate=0.001, optimizer="Adam", useAttention=False, stoi=None, itos=None):
+def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=32, learning_rate=0.001, optimizer="Adam", useAttention=False, stoi=None, itos=None, subreddit_embeddings=None, stoi_subreddits=None, itos_subreddits=None):
 
 
  def predictFromInput(input_sentence):
