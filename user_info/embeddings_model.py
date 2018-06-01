@@ -1,24 +1,25 @@
 import torch.nn as nn
+import pandas as pd
 
 class embeddingModel(nn.module):
-    def __init__(self, input_size, hidden_size, output_size, vocabulary):
+    def __init__(self, embedding_size, vocabulary, num_samples, lr_in):
         super(embeddingModel, self).__init__()
 
-        self.hidden_size = hidden_size
-
-        self.i2h = nn.Linear(input_size, hidden_size)
-        self.relu = nn.ReLU()
+        # The input is D where D is the word vector size
+        self.embedding_size = embedding_size
         self.vocabulary = vocabulary
+        self.embedding = torch.ones(self.embedding_size)
+        self.num_samples = num_samples
+
 
     # input -> [1, D] user embedding
-    def forward(self, input, hidden, user_vec):
-        hidden = self.i2h(input)
+    def forward(self, word_embedding):
+        relu_in = 0.0
+        for embed in sampleFromVocab(self.num_samples):
+            relu_in += (1 - torch.dot(word_embedding, self.embedding) + torch.dot(embed, self.embedding))
         # hidden is now a
-        output = self.relu()
+        output = functional.relu(relu_in)
         return output
 
-    def initHidden(self):
-        return torch.zeros(1, self.hidden_size)
-
-    def sampleFromVocab():
+    def sampleFromVocab(num_to_sample):
         pass
