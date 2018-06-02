@@ -1,7 +1,7 @@
 import torch.nn as nn
 import pandas as pd
 
-class embeddingModel(nn.module):
+class embeddingModel(nn.Module):
     def __init__(self, embedding_size, vocabulary, num_samples, lr_in):
         super(embeddingModel, self).__init__()
 

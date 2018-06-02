@@ -1,16 +1,20 @@
-# File responsible for training the user embeddings
+# File responsible for training the subreddit embeddings
 import torch
 import torch.optim as optim
-from embeddings_model import embeddingModel
+from user_info import embeddings_model
+#from embeddings_model import embeddingModel
 import json
 
 import sys
-sys.path.append('../data')
+sys.path.append('data')
+import read
+
+#from data import read
 from read import loadGloveEmbeddings
 
-class userEmbeddings:
-    def __init__(self, embedding_size, vocabulary, stoi):
-        super(userEmbeddinds, self).__init__()
+class subredditEmbeddings:
+    def __init__(self, embedding_size, vocabulary, stoi, subreddit_stoi):
+        super(subredditEmbeddings, self).__init__()
 
         # The input is D where D is the word vector size
         self.embedding_size = embedding_size
@@ -19,20 +23,28 @@ class userEmbeddings:
         self.embeddings = {}
         self.optims = {}
 
-        self.glove = loadGloveEmbeddings(stoi)
+#        self.glove = loadGloveEmbeddings(stoi)
+        self.glove = torch.nn.Embedding(num_embeddings=10003, embedding_dim=100).cuda()
+        self.glove.weight.data.copy_(torch.FloatTensor(read.loadGloveEmbeddings(stoi)).cuda())
+        print("Read embeddings")
 
-    def add_user(self, user_name):
+
+        self.subreddit_stoi = subreddit_stoi
+        self.subreddit_embeddings = torch.nn.Embedding(num_embeddings=1000, embedding_dim=100).cuda()
+
+
+    def add_subreddit(self, subreddit_name):
         # Use 15 samples
-        self.embeddings[user_name] = embeddingModel(self.embedding_size, self.vocabulary, 15)
-        self.optims[user_name] = optim.SGD(self.embeddings[user_name].parameters(), lr=0.001)
+        self.embeddings[subreddit_name] = embeddings_model.embeddingModel(self.embedding_size, self.vocabulary, 15)
+        self.optims[subreddit_name] = optim.SGD(self.embeddings[subreddit_name].parameters(), lr=0.001)
 
 
-    def train_sentence(user, sentence):
+    def train_sentence(subreddit, sentence):
         for word in sentence:
-            self.embeddings[user].zero_grad()
-            out = self.embeddings[user](word)
+            self.embeddings[subreddit].zero_grad()
+            out = self.embeddings[subreddit](word)
             out.backward()
-            self.optims[user_name].step()
+            self.optims[subreddit_name].step()
 
     def train(self, input):
         # input as an iterator
@@ -41,13 +53,13 @@ class userEmbeddings:
             if next_sentence == None:
                 print('Training done - no more samples.')
 
-            sentence, username = next_sentence
+            sentence, subredditname = next_sentence
             glove_sentence = [self.glove[w] for w in sentence]
 
-            if username not in self.embeddings.keys():
-                self.add_user(username)
+            if subredditname not in self.embeddings.keys():
+                self.add_subreddit(subredditname)
 
-            train_sentence(username, glove_sentence)
+            train_sentence(subredditname, glove_sentence)
 
     def save_to_file(self, filename):
         # Create dict...
@@ -58,9 +70,9 @@ class userEmbeddings:
         with open(filename, 'w') as f:
             json.dump(res, f)
 
-    def get(self, user):
-        if user in self.embeddings.keys():
+    def get(self, subreddit):
+        if subreddit in self.embeddings.keys():
             return self.embeddings.embedding
         else:
-            print('User ' + str(user) + ' not found.')
+            print('User ' + str(subreddit) + ' not found.')
             return None

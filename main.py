@@ -1,4 +1,134 @@
+from data import read
+from user_info import train_embeddings
+itos, stoi = read.createVocabulary(vocab_size=10000) # restrict to 10000 most frequent words
+print("Read dictionary")
 
+#itos_subreddits, stoi_subreddits = read.readUserDictionary()
+itos_subreddits, stoi_subreddits = read.readSubredditDictionary()
+
+trainer = train_embeddings.subredditEmbeddings(200, itos, stoi, stoi_subreddits)
+# should have a subreddit embedding matrix
+
+subreddit_index = read.keys.index("subreddit")
+
+
+def subredditDataIterator():
+   data = read.dataIterator(doTokenization=False, printProblems=False)
+   counter = 0
+   for sentence in data:
+      if sentence[0] == "1":
+           continue
+      subreddit_id = stoi_subreddits.get(sentence[subreddit_index], None)
+      if subreddit_id is not None:
+        counter += 1
+        if counter % 10000 == 0:
+           print(counter)
+        read.tokenize(sentence) # this step is the bottleneck
+        tokens = sentence[1]
+        for token in tokens:
+#           print(token)
+           token_id = stoi.get(token, None)
+ #          print(token_id)
+  #         print(stoi)
+           if token_id is not None and token_id < 10000:
+               yield (token_id, subreddit_id)
+
+import numpy as np
+import torch
+import torch.nn
+import torch.optim as optim
+
+subredditTrainingData = subredditDataIterator()
+
+unigram_probabilities = read.getUnigramProbabilities(vocab_size=10000)
+
+#model = embeddings_model.embeddingModel(self.embedding_size, self.vocabulary, 15)
+
+subreddit_embeddings = torch.nn.Embedding(num_embeddings=1000, embedding_dim=100).cuda()
+
+
+optim = optim.SGD(subreddit_embeddings.parameters(), lr=0.001)
+
+
+glove = torch.nn.Embedding(num_embeddings=10000, embedding_dim=100).cuda()
+glove.weight.data.copy_(torch.FloatTensor(read.loadGloveEmbeddings(stoi, offset=0)).cuda())
+print("Read embeddings")
+
+
+
+
+batchSize = 10
+number_of_negative_samples = 15
+
+runningAverageLoss = 1
+counterTraining = 0
+while True:
+    counterTraining += 1
+    optim.zero_grad()
+    batch = [next(subredditTrainingData) for _ in range(batchSize)]
+    tokens = [x[0] for x in batch]
+    subreddits = [x[1] for x in batch]
+    negative_samples = np.random.choice(10000, size=(batchSize*number_of_negative_samples), p=unigram_probabilities)
+    positive_tokens = glove(torch.LongTensor(tokens).cuda()) # (batchSize, 100)
+    negative_tokens = glove(torch.LongTensor(negative_samples).cuda()) # (batchSize * negSamples, 100)
+    subreddit_embedded = subreddit_embeddings(torch.LongTensor(subreddits).cuda()) # (batchSize, 100)
+    dotProductPositive = torch.bmm(subreddit_embedded.unsqueeze(1), positive_tokens.unsqueeze(2)).unsqueeze(1) # (batchSize, 1, 1)
+
+    first =subreddit_embedded.unsqueeze(1).unsqueeze(2)
+#    print(first.size())
+    second = negative_tokens.view(batchSize, number_of_negative_samples, 100, 1)
+ #   print(second.size())
+    dotProductNegative = torch.matmul(first, second)
+  #  print(dotProductNegative.size())
+    dotProductNegative = dotProductNegative.view(batchSize, number_of_negative_samples, 1)
+
+    loss = torch.nn.ReLU()(1-dotProductPositive+dotProductNegative)
+    meanLoss = loss.mean()
+    meanLoss.backward()
+    optim.step()
+
+    runningAverageLoss = 0.999 * runningAverageLoss + (1-0.999) * meanLoss.data.cpu().numpy()
+    if counterTraining % 1000 == 0:
+       print(runningAverageLoss)
+
+#    print(loss)
+#
+#    print(negative_samples)
+
+#     print(tokens)
+
+#     print(subreddit_id)
+#   print(sentence)
+
+quit()
+
+
+def extractDataForTopUsers():
+    itos_users, stoi_users = read.readUserDictionary()
+    
+    author_index = read.keys.index("author")
+    
+    data = read.dataIterator(doTokenization=False, printProblems=False)
+    counter = 0
+
+    with open("data/processed/dataForUsers.tsv", "w") as outFile:
+       for sentence in data:
+#          if sentence[0] == "1":
+#             continue
+          user = sentence[author_index]
+          user_id = stoi_users.get(user, None)
+#          print(user)
+          if user_id is not None:
+            print(user_id)
+          if user_id is not None and user_id < 1000:
+             counter += 1
+             if counter % 10 == 0:
+                print(counter)
+             outFile.write(("\t".join(sentence))+"\n")
+ 
+extractDataForTopUsers()
+
+quit()
 
 
 from data import read

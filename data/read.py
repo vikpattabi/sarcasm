@@ -14,6 +14,16 @@ with open("data/raw/key.csv", "r") as inFile:
   keys = inFile.read().strip().split("\t")
 
 
+def tokenize(line, response=True, parent=False): # in-place operation
+         if response:
+            tokens = nlp(line[1])
+            tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+            line[1] = tokens
+         if parent:
+            tokens = nlp(line[9])
+            tokens = [token.orth_ for token in tokens if not token.orth_.isspace()]
+            line[9] = tokens
+
 
 def dataIterator(doTokenization=True, printProblems=True):
    """
@@ -96,7 +106,7 @@ def createVocabulary(vocab_size=10000):
      creates the vocabulary, sorted descendingly by frequency in the large CSV file (currently only the first 10000 sentences)
   """
   with open("data/processed/vocabulary.tsv", "r") as inFile:
-     itos = inFile.read().strip().split("\n")[:vocab_size]
+     itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:vocab_size]]
   stoi = dict([(itos[i], i) for i in range(len(itos))])
   return itos , stoi
 
@@ -158,8 +168,8 @@ def readProcessedTrainingDataOld():
 
 import random
 
-def loadGloveEmbeddings(stoi):
-   embeddings = [None, None, None] + [None for _ in stoi]
+def loadGloveEmbeddings(stoi, offset=3):
+   embeddings = [None for _ in range(offset)] + [None for _ in stoi]
    zipFile = zipfile.ZipFile("data/embeddings/glove.6B.zip", "r")
    counter = 0
    with zipFile.open("glove.6B.100d.txt", "r") as inFile:
@@ -172,7 +182,7 @@ def loadGloveEmbeddings(stoi):
           word = line[0]
           embedding = list(map(float,line[1:]))
           if word in stoi:
-             embeddings[stoi[word]+3] = embedding
+             embeddings[stoi[word]+offset] = embedding
    for i in range(len(embeddings)):
        if embeddings[i] is None:
           embeddings[i] = [random.uniform(-0.01, 0.01) for _ in range(100)]
@@ -212,4 +222,32 @@ def readTrainingAndDevData(stoi):
   training_data = training_data[1000:]
 
   return training_data, held_out_data  
-  
+
+
+def readUserDictionary():
+   with open("data/processed/users-counts.tsv", "r") as inFile:
+      users = inFile.read().strip().split("\n")
+   itos_users = [x.split("\t")[0] for x in users]
+   stoi_users = dict([(itos_users[i], i) for i in range(len(itos_users))])
+   return itos_users, stoi_users
+
+def readSubredditDictionary():
+   with open("data/processed/subreddit-counts.tsv", "r") as inFile:
+      subreddits = inFile.read().strip().split("\n")
+   itos_subreddits = [x.split("\t")[0] for x in subreddits]
+   stoi_subreddits = dict([(itos_subreddits[i], i) for i in range(len(itos_subreddits))])
+   return itos_subreddits, stoi_subreddits
+
+import numpy as np
+
+def getUnigramProbabilities(vocab_size=10000):
+   with open("data/processed/vocabulary-with-counts.tsv", "r") as inFile:
+      counts = np.asarray([int(x.split("\t")[1]) for x in inFile.read().strip().split("\n")[:vocab_size]])
+      total = sum(counts)
+      return counts/total
+      
+
+
+
+
+
