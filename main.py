@@ -55,7 +55,17 @@ glove.weight.data.copy_(torch.FloatTensor(read.loadGloveEmbeddings(stoi, offset=
 print("Read embeddings")
 
 
-
+def printClosestNeighbors():
+   subreddits = subreddit_embeddings.weight.data[:20].view(20, 1, 1, 100) # 20 x 100
+   words = glove.weight.data.view(1, 10000, 100, 1)
+   scores = torch.matmul(subreddits, words) # 20 x 10000 x 1 x 1
+   scores = scores.view(20, 10000)
+   best = torch.topk(scores, k=10)[1].data.cpu().numpy()
+   for i in range(20):
+      print("------------")
+      print(itos_subreddits[i])
+      print([itos[j] for j in best[i]])
+#   quit()
 
 batchSize = 10
 number_of_negative_samples = 15
@@ -90,6 +100,8 @@ while True:
     runningAverageLoss = 0.999 * runningAverageLoss + (1-0.999) * meanLoss.data.cpu().numpy()
     if counterTraining % 1000 == 0:
        print(runningAverageLoss)
+       if counterTraining % 50000 == 0:
+          printClosestNeighbors()
 
 #    print(loss)
 #
