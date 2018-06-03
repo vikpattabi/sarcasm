@@ -1,3 +1,8 @@
+from user_info import train_embeddings
+train_embeddings.trainSubredditEmbeddings()
+quit()
+
+
 from data import read
 from user_info import train_embeddings
 itos, stoi = read.createVocabulary(vocab_size=10000) # restrict to 10000 most frequent words
@@ -46,12 +51,20 @@ unigram_probabilities = read.getUnigramProbabilities(vocab_size=10000)
 
 subreddit_embeddings = torch.nn.Embedding(num_embeddings=1000, embedding_dim=100).cuda()
 
-
-optim = optim.SGD(subreddit_embeddings.parameters(), lr=0.001)
+learning_rate = 0.2
+learning_rate_decay = 0.5
+optimizer = optim.SGD(subreddit_embeddings.parameters(), lr=learning_rate)
 
 
 glove = torch.nn.Embedding(num_embeddings=10000, embedding_dim=100).cuda()
 glove.weight.data.copy_(torch.FloatTensor(read.loadGloveEmbeddings(stoi, offset=0)).cuda())
+
+norm = torch.norm(glove.weight.data, p=2, dim=1).unsqueeze(1)
+#print(norm.size())
+#quit()
+
+glove.weight.data = glove.weight.data.div(norm.expand_as(glove.weight.data))
+
 print("Read embeddings")
 
 
@@ -74,7 +87,7 @@ runningAverageLoss = 1
 counterTraining = 0
 while True:
     counterTraining += 1
-    optim.zero_grad()
+    optimizer.zero_grad()
     batch = [next(subredditTrainingData) for _ in range(batchSize)]
     tokens = [x[0] for x in batch]
     subreddits = [x[1] for x in batch]
@@ -95,13 +108,22 @@ while True:
     loss = torch.nn.ReLU()(1-dotProductPositive+dotProductNegative)
     meanLoss = loss.mean()
     meanLoss.backward()
-    optim.step()
+    optimizer.step()
 
     runningAverageLoss = 0.999 * runningAverageLoss + (1-0.999) * meanLoss.data.cpu().numpy()
     if counterTraining % 1000 == 0:
        print(runningAverageLoss)
        if counterTraining % 50000 == 0:
           printClosestNeighbors()
+
+          norm = torch.norm(subreddit_embeddings.weight.data, p=2, dim=1).unsqueeze(1).detach()
+          subreddit_embeddings.weight.data = subreddit_embeddings.weight.data.div(norm.expand_as(subreddit_embeddings.weight.data))
+
+       if counterTraining % 100000 == 0:
+          learning_rate *= learning_rate_decay
+          optimizer = optim.SGD(subreddit_embeddings.parameters(), lr=learning_rate)
+          print("Decaying learning rate")
+          print(learning_rate)
 
 #    print(loss)
 #

@@ -105,7 +105,7 @@ def createVocabulary(vocab_size=10000):
   """
      creates the vocabulary, sorted descendingly by frequency in the large CSV file (currently only the first 10000 sentences)
   """
-  with open("data/processed/vocabulary.tsv", "r") as inFile:
+  with open("data/processed/vocabulary-with-counts-lower.tsv", "r") as inFile:
      itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:vocab_size]]
   stoi = dict([(itos[i], i) for i in range(len(itos))])
   return itos , stoi
@@ -181,8 +181,9 @@ def loadGloveEmbeddings(stoi, offset=3):
           line = line.decode("utf8").split(" ")
           word = line[0]
           embedding = list(map(float,line[1:]))
-          if word in stoi:
-             embeddings[stoi[word]+offset] = embedding
+          entry = stoi.get(word, None)
+          if entry is not None:
+             embeddings[entry+offset] = embedding
    for i in range(len(embeddings)):
        if embeddings[i] is None:
           embeddings[i] = [random.uniform(-0.01, 0.01) for _ in range(100)]
@@ -191,6 +192,7 @@ def loadGloveEmbeddings(stoi, offset=3):
 
 # 0 is Start-of-sentence (+ padding for minibatching), 1 is end-of-sentence, 2 is out-of-vocabulary
 def encode_token(token, stoi):
+   token = token.lower()
    if token in stoi:
       return stoi[token]+3
    else:
@@ -241,7 +243,7 @@ def readSubredditDictionary():
 import numpy as np
 
 def getUnigramProbabilities(vocab_size=10000):
-   with open("data/processed/vocabulary-with-counts.tsv", "r") as inFile:
+   with open("data/processed/vocabulary-with-counts-lower.tsv", "r") as inFile:
       counts = np.asarray([int(x.split("\t")[1]) for x in inFile.read().strip().split("\n")[:vocab_size]])
       total = sum(counts)
       return counts/total
