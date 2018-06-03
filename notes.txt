@@ -1,0 +1,24 @@
+#####################################
+Notes on what we did:
+
+- Stopped vocabulary after about 4.8 Million posts.
+
+#####################################
+Directory structure: Data and embeddings files are expected in the following places:
+
+data/embeddings:
+glove.6B.zip
+subreddit_embeddings.txt
+user_embeddings.txt
+
+data/processed:
+all-sarcastic-330K.tsv    # this is currently used
+all-sarcastic.tsv         # this contains all sarcastic data
+subreddit-counts.tsv
+users-counts.tsv
+vocabulary-with-counts-lower.tsv
+
+data/raw:
+sarc.csv.bz2         # used for creating user and subreddit embeddings. not necessary for training of encoder-decoder
+
+

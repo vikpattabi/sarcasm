@@ -10,8 +10,7 @@ import random
 from spacy.lang.en import English
 nlp = English()
 
-with open("data/raw/key.csv", "r") as inFile:
-  keys = inFile.read().strip().split("\t")
+keys = "label	comment	author	subreddit	score	ups	downs	date	created_utc	parent_comment	id	link_id".split("\t")
 
 
 def tokenize(line, response=True, parent=False): # in-place operation

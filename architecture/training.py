@@ -21,7 +21,8 @@ parent_index = read.keys.index("parent_comment")
 
 
 
-def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=32, learning_rate=0.001, optimizer="Adam", useAttention=False, stoi=None, itos=None, subreddit_embeddings=None, stoi_subreddits=None, itos_subreddits=None):
+# , subreddit_embeddings=None, stoi_subreddits=None, itos_subreddits=None
+def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=32, learning_rate=0.001, optimizer="Adam", useAttention=False, stoi=None, itos=None):
 
 
  def predictFromInput(input_sentence):
