@@ -22,7 +22,7 @@ subreddit_index = read.keys.index("subreddit")
 
 
 # , subreddit_embeddings=None, stoi_subreddits=None, itos_subreddits=None
-def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=32, learning_rate=0.001, optimizer="Adam", useAttention=False, stoi=None, itos=None, subreddit_embeddings=None, itos_subreddits=None, stoi_subreddits=None):
+def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=32, learning_rate=0.001, optimizer="Adam", useAttention=False, stoi=None, itos=None, subreddit_embeddings=None, itos_subreddits=None, stoi_subreddits=None, args=None):
 
  quotation_mark_index = stoi.get('"', -1) + 3
 
@@ -64,7 +64,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
     subreddit1 = torch.LongTensor([stoi_subreddits.get(subreddit1, -1)+1]).cuda()
     subreddit2 = torch.LongTensor([stoi_subreddits.get(subreddit2, -1)+1]).cuda()
    
-    beamSize = 5
+    beamSize = 1
 
     finished = []
     generated = [[(0, 0.0, False)]]
@@ -198,6 +198,19 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
 
 
 
+
+ if args.load_from is not None:
+   checkpoint = torch.load("data/checkpoints/"+args.load_from+".pth.tar")
+   subreddit_embeddings.load_state_dict(checkpoint["subreddit_embeddings"])
+   embeddings.load_state_dict(checkpoint["embeddings"])
+   encoder.load_state_dict(checkpoint["encoder"])
+   decoder.load_state_dict(checkpoint["decoder"])
+   encoder_optimizer.load_state_dict(checkpoint["encoder_optimizer"])
+   decoder_optimizer.load_state_dict(checkpoint["decoder_optimizer"])
+   embeddings_optimizer.load_state_dict(checkpoint["embeddings_optimizer"])
+             
+
+
  devLosses = []
 
  batchSize = 32
@@ -265,7 +278,8 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
           print("funny")
           print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "funny", "worldnews"))
 
-
+          # save current model
+#          quit()
 
 #          print(predictFromInput(["This", "article", "is", "awesome", "."]))
  #         print(predictFromInput(["Bankers", "celebrate", "the", "start", "of", "the", "Trump", "era", "."]))
@@ -303,6 +317,8 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
        print("Overfitting, stop")
        return
 
+   if args.save_to is not None:
+      torch.save({"subreddit_embeddings" : subreddit_embeddings.state_dict(), "embeddings" : embeddings.state_dict(), "encoder" : encoder.state_dict(), "decoder" : decoder.state_dict(), "encoder_optimizer" : encoder_optimizer.state_dict(), "decoder_optimizer" : decoder_optimizer.state_dict(),"embeddings_optimizer" : embeddings_optimizer.state_dict()}, "data/checkpoints/"+args.save_to+".pth.tar")
 
 
 #def train_example(input, output, encoder, decoder, encoder_optimizer, decoder_optimizer, params, loss_fn):

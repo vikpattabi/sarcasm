@@ -64,7 +64,7 @@ class decoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 class attentionDecoderRNN(nn.Module):
-    def __init__(self, hidden_size=200, embedding_size=200, embeddings=None, vocab_size=10000+3, dropout_p = 0.1):
+    def __init__(self, hidden_size=200, embedding_size=200, embeddings=None, vocab_size=10000+3, dropout_p = 0.1, subreddit_embeddings=None):
         super(attentionDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.dropout_p = dropout_p
@@ -72,21 +72,22 @@ class attentionDecoderRNN(nn.Module):
         self.embedding_size = embedding_size
 
         self.embedding = embeddings
+        self.subreddit_embedding = subreddit_embeddings
 
         self.attn_hidden_1 = nn.Linear(self.hidden_size, 100)
         self.attn_hidden_2 = nn.Linear(self.hidden_size, 100)
-        self.attn_hidden_3 = nn.Linear(embedding_size, 100)
+        self.attn_hidden_3 = nn.Linear(2*embedding_size, 100)
 
         self.attn = nn.Linear(100,1)
         self.attn.weight.data.fill_(0)
 
-        self.attn_combine = nn.Linear(self.hidden_size + embedding_size, embedding_size)
+        self.attn_combine = nn.Linear(self.hidden_size + 2*embedding_size, embedding_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        self.gru = nn.GRU(embedding_size+hidden_size, hidden_size)
+        self.gru = nn.GRU(2*embedding_size+hidden_size, hidden_size)
         self.out = nn.Linear(hidden_size, vocab_size)
 #        self.out.weight.data.copy_(self.embedding.weight.data) # .transpose(0,1) # for this, we would need to match up embedding and hidden dimensions
 
-    def forward(self, input, hidden, encoder_outputs):
+    def forward(self, input, hidden, encoder_outputs, subreddits):
 
         batchSize = input.size()[1]
         length_of_target = input.size()[0]
@@ -95,7 +96,16 @@ class attentionDecoderRNN(nn.Module):
         encoder_outputs = self.dropout(encoder_outputs.transpose(0,1)) # now: batchSize x length_of_source
 
         embedded = self.embedding(input).view(length_of_target, batchSize, self.embedding_size)
-        embedded = self.dropout(embedded)
+
+
+
+        subreddits_embedded = self.subreddit_embedding(subreddits).view(1, -1, self.embedding_size)
+        subreddits_embedded = subreddits_embedded.expand_as(embedded)
+        embeddings_total = torch.cat([embedded, subreddits_embedded], dim=2)
+
+
+
+        embedded = self.dropout(embeddings_total)
 
 
         attention_hidden_3 = self.attn_hidden_3(embedded) # length_of_target x batchSize x 100

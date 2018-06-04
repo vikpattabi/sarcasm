@@ -3,6 +3,16 @@ from user_info import train_embeddings
 
 from data import read
 
+
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--load-from", dest="load_from", type=str)
+parser.add_argument("--save-to", dest="save_to", type=str)
+parser.add_argument("--attention")
+args=parser.parse_args()
+print(args)
+
 # (1) for training subreddit embeddings:
 #train_embeddings.trainSubredditEmbeddings()
 
@@ -37,7 +47,7 @@ if useGlove:
    embeddings.weight.data.copy_(torch.FloatTensor(read.loadGloveEmbeddings(stoi)).cuda())
 print("Read Glove embeddings")
 
-useAttention = False #True
+useAttention = args.attention
 
 
 itos_subreddits, stoi_subreddits = read.readSubredditDictionary()
@@ -47,11 +57,13 @@ print("Read subreddit embeddings")
 
 encoder = model.encoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings).cuda()
 if useAttention:
-  decoder = model.attentionDecoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3).cuda()
+  decoder = model.attentionDecoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3, subreddit_embeddings=subreddit_embeddings).cuda()
 else:
   decoder = model.decoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3, subreddit_embeddings=subreddit_embeddings).cuda()
 
-training.run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=128, learning_rate=0.001, optimizer="Adam", useAttention=useAttention, stoi=stoi, itos=itos, subreddit_embeddings=subreddit_embeddings, itos_subreddits=itos_subreddits, stoi_subreddits=stoi_subreddits)
+
+
+training.run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=128, learning_rate=0.001, optimizer="Adam", useAttention=useAttention, stoi=stoi, itos=itos, subreddit_embeddings=subreddit_embeddings, itos_subreddits=itos_subreddits, stoi_subreddits=stoi_subreddits, args=args)
 # , subreddit_embeddings=subreddit_embeddings, stoi_subreddits=stoi_subreddits, itos_subreddits=itos_subreddits
 
 
