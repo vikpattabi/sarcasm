@@ -25,7 +25,7 @@ def save_to_file(itos_subreddits, embeddings):
 # Trains subreddit embeddings for one epoch.
 # normalizeEmbeddings: from time to time normalize the L2 norm of each subreddit embedding to one
 # I haven't really tuned these parameters very much.
-def trainSubredditEmbeddings(normalizeEmbeddings = False, learning_rate = 0.2, learning_rate_decay = 0.9, batchSize = 10, number_of_negative_samples = 15):
+def trainSubredditEmbeddings(normalizeEmbeddings = False, learning_rate = 0.2, learning_rate_decay = 0.99, batchSize = 10, number_of_negative_samples = 15):
      itos, stoi = read.createVocabulary(vocab_size=10000) # restrict to 10000 most frequent words
      print("Read dictionary")
      

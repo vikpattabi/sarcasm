@@ -225,6 +225,39 @@ def readTrainingAndDevData(stoi):
   return training_data, held_out_data  
 
 
+def readTrainingAndDevDataTokenized(stoi):
+   training_data = []
+   
+   comment_index = keys.index("comment")
+   parent_index = keys.index("parent_comment")
+   subreddit_index = keys.index("subreddit")
+   author_index = keys.index("author")
+   
+   counter = 0
+   with open("data/processed/tokenized.txt", "r") as outFile:
+     for line in outFile:
+       counter += 1
+       if counter % 10000 == 0:
+           print(counter) 
+ 
+       line = line.strip().split(" ")
+       dataPoint = [None for _ in keys]
+       dataPoint[subreddit_index] = line[0]
+       dataPoint[author_index] = line[1]
+       parentStart = line.index("__PARENT__")
+       dataPoint[comment_index] = encode_sentence(line[2:parentStart], stoi)
+       dataPoint[parent_index] = encode_sentence(line[parentStart+1:], stoi)
+
+       training_data.append(dataPoint)
+   random.Random(5).shuffle(training_data)
+   held_out_data = training_data[:1000]
+   training_data = training_data[1000:]
+ 
+   return training_data, held_out_data  
+ 
+
+
+
 def readUserDictionary():
    with open("data/processed/users-counts.tsv", "r") as inFile:
       users = inFile.read().strip().split("\n")
@@ -248,6 +281,26 @@ def getUnigramProbabilities(vocab_size=10000):
       return counts/total
       
 
+
+def loadSubredditEmbeddings(stoi, offset=1):
+   embeddings = [None for _ in range(offset)] + [None for _ in stoi]
+   counter = 0
+   with open("data/embeddings/subreddit_embeddings.txt", "r") as inFile:
+      for line in inFile:
+          counter += 1
+          if counter % 50000 == 0:
+              break
+              print(counter)
+          line = line.split(" ")
+          word = line[0]
+          embedding = list(map(float,line[1:]))
+          entry = stoi.get(word, None)
+          if entry is not None:
+             embeddings[entry+offset] = embedding
+   for i in range(len(embeddings)):
+       if embeddings[i] is None:
+          embeddings[i] = [random.uniform(-0.01, 0.01) for _ in range(100)]
+   return embeddings
 
 
 

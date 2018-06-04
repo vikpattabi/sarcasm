@@ -17,33 +17,36 @@ def collectAndPadInput(current, index):
 comment_index = read.keys.index("comment")
 parent_index = read.keys.index("parent_comment")
 
-
+subreddit_index = read.keys.index("subreddit")
 
 
 
 # , subreddit_embeddings=None, stoi_subreddits=None, itos_subreddits=None
-def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=32, learning_rate=0.001, optimizer="Adam", useAttention=False, stoi=None, itos=None):
+def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=32, learning_rate=0.001, optimizer="Adam", useAttention=False, stoi=None, itos=None, subreddit_embeddings=None, itos_subreddits=None, stoi_subreddits=None):
 
+ quotation_mark_index = stoi.get('"', -1) + 3
 
- def predictFromInput(input_sentence):
+ def predictFromInput(input_sentence, subreddit):
     input = read.encode_sentence(input_sentence, stoi)
     
     encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
+    subreddit = torch.LongTensor([stoi_subreddits.get(subreddit, -1)+1]).cuda()
+
     generated = [torch.LongTensor([0]).cuda()]
     generated_words = []
     while True:
        input = generated[-1]
        if not useAttention:
-          output, hidden = decoder.forward(input, hidden)
+          output, hidden = decoder.forward(input, hidden, subreddits=subreddit)
        else:
-          output, hidden, attention = decoder.forward(input.view(1,1), hidden, encoder_outputs=encoder_outputs)
+          output, hidden, attention = decoder.forward(input.view(1,1), hidden, encoder_outputs=encoder_outputs, subreddits=subreddit)
           print(attention[0].view(-1).data.cpu().numpy()[:])
-       _, predicted = torch.topk(output, 2, dim=2)
-       predicted = predicted.data.cpu().view(2).numpy()
-       if predicted[0] == 2:
-           predicted = predicted[1]
-       else:
-          predicted = predicted[0]
+       _, predicted = torch.topk(output, 3, dim=2)
+       predicted = predicted.data.cpu().view(3).numpy()
+       for i in range(3):
+          if predicted[i] != 2 and predicted[i] != quotation_mark_index:
+            predicted = predicted[i]
+            break
        
        predicted_numeric = predicted
        if predicted_numeric == 1 or predicted_numeric == 0 or len(generated_words) > 100:
@@ -54,7 +57,124 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
          generated_words.append(itos[predicted_numeric-3])
        generated.append(torch.LongTensor([predicted_numeric]).cuda())
  
- 
+ def discriminivativeDecoding(input_sentence, subreddit1, subreddit2):
+    input = read.encode_sentence(input_sentence, stoi)
+    
+    encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
+    subreddit1 = torch.LongTensor([stoi_subreddits.get(subreddit1, -1)+1]).cuda()
+    subreddit2 = torch.LongTensor([stoi_subreddits.get(subreddit2, -1)+1]).cuda()
+   
+    beamSize = 5
+
+    finished = []
+    generated = [[(0, 0.0, False)]]
+#    hidden = hidden.expand(1, len(generated), 200).contiguous()
+    hidden2 = hidden
+    while len(generated) > 0:
+       input = torch.LongTensor([x[-1][0] for x in generated]).view(1,-1).cuda()
+       if not useAttention:
+          output, hidden = decoder.forward(input, hidden, subreddits=subreddit1)
+          output2, hidden2 = decoder.forward(input, hidden2, subreddits=subreddit2)
+       else:
+          output, hidden, attention = decoder.forward(input.view(1,1), hidden, encoder_outputs=encoder_outputs, subreddits=subreddit1)
+          output2, hidden2, attention2 = decoder.forward(input.view(1,1), hidden2, encoder_outputs=encoder_outputs, subreddits=subreddit2)
+          print(attention[0].view(-1).data.cpu().numpy()[:])
+
+#       if len(generated) == 1:
+#          hidden = hidden.expand(1, beamSize-len(finished), 200).contiguous()
+#          hidden2 = hidden2.expand(1, beamSize-len(finished), 200).contiguous()
+
+       hiddenStates = [hidden.squeeze(0)[j] for j in range(len(generated))]
+       hiddenStates2 = [hidden2.squeeze(0)[j] for j in range(len(generated))]
+
+       topk = beamSize+3 if len(generated) == 1 else 3
+       probabilities, predicted = torch.topk(output, topk, dim=2) # output2
+
+       predicted = predicted.data.cpu().view(len(generated), topk).numpy()
+       probabilities = probabilities.data.cpu().view(len(generated), topk).numpy()
+
+       newVersions = []
+       for j in range(len(generated)):
+         for i in range(topk):
+            if predicted[j][i] != 2 and predicted[j][i] != quotation_mark_index:
+               newVersions.append((generated[j] + [(predicted[j][i], probabilities[j][i] + generated[j][-1][1], generated[j][-1][2])], j    ))
+
+       newVersions = sorted(newVersions, key=lambda x:x[0][-1][1], reverse=True)
+#       random.shuffle(newVersions)
+
+
+
+       generated = [x[0] for x in newVersions[:(beamSize - len(finished))]]
+
+
+#       print(generated)
+#       quit()
+
+       allHaveFinished = True
+       assert len(generated) + len(finished) <= beamSize
+       for j in range(len(generated)):
+           assert j < len(generated)
+           assert len(generated[j]) > 1
+           assert len(generated[j][-1]) > 1
+           if not (generated[j][-1][0] == 1 or generated[j][-1][0] == 0 or len(generated[j]) > 100):
+               allHaveFinished=False
+           else:
+               finished.append(generated[j])
+               generated[j] = False
+       if allHaveFinished:
+          break
+
+       hidden = torch.cat([hiddenStates[newVersions[i][1]].unsqueeze(0) for i in range(len(generated)) if generated[i] is not False], dim=0).unsqueeze(0)
+       hidden2 = torch.cat([hiddenStates2[newVersions[i][1]].unsqueeze(0) for i in range(len(generated)) if generated[i] is not False], dim=0).unsqueeze(0)
+
+
+
+       generated = [x for x in generated if x is not False]
+
+#       print((hidden.size(), hidden2.size(), len(generated)))
+
+ #   print(finished[0])
+    for j in range(beamSize):
+        string = ""
+        for word in finished[j][1:]:
+#            print(word)
+            if word[0] == 1 or word[0] == 0:
+                break
+            string+=" "+itos[word[0]-3]
+        print(string)
+        print(finished[j][-1][1])
+
+
+#    input = read.encode_sentence(input_sentence, stoi)
+#    
+#    encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
+#
+#
+#    targets = torch.LongTensor([[0] + [x[0] for x in sentence] for sentence in generated]).transpose(0,1).cuda()
+#    
+#    subreddit2 = torch.LongTensor([stoi_subreddits.get(subreddit2, -1)+1]).cuda()
+#
+#    hidden = hidden.expand(1, len(generated), 200).contiguous()
+#
+#    if not useAttention:
+#       output, hidden = decoder.forward(targets[:-1], hidden, subreddits=subreddit2)
+#    else:
+#       output, hidden, attention = decoder.forward(targets[:-1], hidden, encoder_outputs=encoder_outputs, subreddits=subreddit2)
+#       print(attention[0].view(-1).data.cpu().numpy()[:])
+#    probabilities2 = 
+
+
+
+#    predicted_numeric = predicted
+#    if predicted_numeric == 1 or predicted_numeric == 0 or len(generated_words) > 100:
+#       return " ".join(generated_words)
+#    elif predicted_numeric ==2:
+#      generated_words.append("OOV")
+#    else:
+#      generated_words.append(itos[predicted_numeric-3])
+#    generated.append(torch.LongTensor([predicted_numeric]).cuda())
+
+    return "" 
  
 
  encoder_optimizer = None
@@ -107,6 +227,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       context_sentence = collectAndPadInput(current, parent_index)
       response_sentence = collectAndPadInput(current, comment_index)
 
+      subreddits = torch.LongTensor([stoi_subreddits.get(x[subreddit_index], -1)+1 for x in current]).cuda()
 
       encoder_outputs, hidden = encoder.forward(torch.LongTensor(context_sentence).cuda(), None)
 
@@ -114,9 +235,9 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
      
 
       if not useAttention:
-         output, _ = decoder.forward(response[:-1], hidden)
+         output, _ = decoder.forward(response[:-1], hidden, subreddits=subreddits)
       else:
-         output, _, attentions = decoder.forward(response[:-1], hidden, encoder_outputs=encoder_outputs)
+         output, _, attentions = decoder.forward(response[:-1], hidden, encoder_outputs=encoder_outputs, subreddits=subreddits)
 
       loss = lossModule(output.view(-1, 10000+3), response[1:].view(-1))
 
@@ -129,12 +250,25 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       embeddings_optimizer.step()
    
    
-      if steps % 1000 == 0:
+      if steps % 1000 == 0: # 
           print((epoch,steps,crossEntropy))
           print(devLosses)
-          print(predictFromInput(["This", "article", "is", "such", "BS", "."]))
-          print(predictFromInput(["This", "article", "is", "awesome", "."]))
-          print(predictFromInput(["Bankers", "celebrate", "the", "start", "of", "the", "Trump", "era", "."]))
+          print("worldnews")
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print("funny")
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print("gaming")
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+
+          print("worldnews")
+          print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "worldnews", "funny"))
+          print("funny")
+          print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "funny", "worldnews"))
+
+
+
+#          print(predictFromInput(["This", "article", "is", "awesome", "."]))
+ #         print(predictFromInput(["Bankers", "celebrate", "the", "start", "of", "the", "Trump", "era", "."]))
 
    # At the end of every epoch, we run on the development partition and record the log-likelihood. As soon as it drops, we stop training
    print("Running on dev")
@@ -148,13 +282,17 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
    
       numberOfWords += len(dataPoint[comment_index])-1
 
+
+      subreddits = torch.LongTensor([stoi_subreddits.get(x[subreddit_index], -1)+1 for x in [dataPoint]]).cuda()
+
+
       encoder_outputs, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
       target = torch.LongTensor(dataPoint[comment_index][1:]).view(-1).cuda()
 
       if not useAttention:
-         output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden)
+         output, _ = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).cuda(), hidden, subreddits=subreddits)
       else:
-         output, _, attentions = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).view(-1,1).cuda(), hidden, encoder_outputs=encoder_outputs)
+         output, _, attentions = decoder.forward(torch.LongTensor(dataPoint[comment_index][:-1]).view(-1,1).cuda(), hidden, encoder_outputs=encoder_outputs, subreddits=subreddits)
       loss = lossModuleNoAverage(output.view(-1, 10000+3), target.view(-1))
 
       crossEntropy = 0.99 * crossEntropy + (1-0.99) * loss.data.cpu().numpy()

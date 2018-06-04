@@ -30,7 +30,7 @@ class encoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
 class decoderRNN(nn.Module):
-    def __init__(self, hidden_size=200, embedding_size=200, embeddings=None, vocab_size=10000+3, dropout_p = 0.1):
+    def __init__(self, hidden_size=200, embedding_size=200, embeddings=None, vocab_size=10000+3, dropout_p = 0.1, subreddit_embeddings=None):
         super(decoderRNN, self).__init__()
 
         self.hidden_size = hidden_size
@@ -38,20 +38,25 @@ class decoderRNN(nn.Module):
         self.dropout_p = dropout_p
       
         self.embedding = embeddings
-        self.gru = nn.GRU(embedding_size, hidden_size)
+        self.subreddit_embedding = subreddit_embeddings
+        self.gru = nn.GRU(2*embedding_size, hidden_size)
 
         self.out = nn.Linear(hidden_size, vocab_size)
         self.softmax = nn.LogSoftmax(dim=2)
 
         self.dropout = nn.Dropout(self.dropout_p)
 
-    def forward(self, input, hidden):
-        embedded = self.embedding(input).view(len(input), -1, self.embedding_size)
 
-        output = self.dropout(embedded)
+    def forward(self, input, hidden, subreddits):
+        embedded = self.embedding(input).view(len(input), -1, self.embedding_size)
+        subreddits_embedded = self.subreddit_embedding(subreddits).view(1, -1, self.embedding_size)
+
+        subreddits_embedded = subreddits_embedded.expand_as(embedded)
+        embeddings_total = torch.cat([embedded, subreddits_embedded], dim=2)
+        output = self.dropout(embeddings_total)
 
         #output = functional.relu(output)
-        output, hidden = self.gru(embedded, hidden)
+        output, hidden = self.gru(output, hidden)
         output = self.softmax(self.out(output))
         return output, hidden
 

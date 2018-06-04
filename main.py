@@ -7,7 +7,7 @@ from data import read
 #train_embeddings.trainSubredditEmbeddings()
 
 # (2) for training user embeddings:
-# train_user_embeddings.trainUserEmbeddings()
+#train_user_embeddings.trainUserEmbeddings()
 
 
 # (3) The following code is for training the encoder-decoder model. Currently without user/subreddit embeddings
@@ -22,7 +22,7 @@ print("Read dictionary")
 
 # Reading the data that we have extracted to far
 print("Now reading training data")
-training_data, held_out_data = read.readTrainingAndDevData(stoi)
+training_data, held_out_data = read.readTrainingAndDevDataTokenized(stoi)
 print("Read training data.")
 print("Length of training set "+str(len(training_data)))
 
@@ -40,13 +40,18 @@ print("Read Glove embeddings")
 useAttention = False #True
 
 
+itos_subreddits, stoi_subreddits = read.readSubredditDictionary()
+subreddit_embeddings = model.embeddings(vocab_size=1000+1, embedding_size=100).cuda()
+subreddit_embeddings.weight.data.copy_(torch.FloatTensor(read.loadSubredditEmbeddings(stoi_subreddits, offset=1)).cuda())
+print("Read subreddit embeddings")
+
 encoder = model.encoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings).cuda()
 if useAttention:
   decoder = model.attentionDecoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3).cuda()
 else:
-  decoder = model.decoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3).cuda()
+  decoder = model.decoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3, subreddit_embeddings=subreddit_embeddings).cuda()
 
-training.run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=128, learning_rate=0.001, optimizer="Adam", useAttention=useAttention, stoi=stoi, itos=itos)
+training.run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=128, learning_rate=0.001, optimizer="Adam", useAttention=useAttention, stoi=stoi, itos=itos, subreddit_embeddings=subreddit_embeddings, itos_subreddits=itos_subreddits, stoi_subreddits=stoi_subreddits)
 # , subreddit_embeddings=subreddit_embeddings, stoi_subreddits=stoi_subreddits, itos_subreddits=itos_subreddits
 
 
