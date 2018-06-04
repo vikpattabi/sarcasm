@@ -124,8 +124,8 @@ def readTrainingData():
 
 
 
-def readProcessedTrainingData():
-   with open("data/processed/all-sarcastic-200K.tsv", "r") as data:
+def readProcessedTrainingData(fileName="all-sarcastic-200K.tsv"):
+   with open("data/processed/"+fileName, "r") as data:
       for response in data:
                 response = response.split("\t")
                 assert len(response) == 12, response
