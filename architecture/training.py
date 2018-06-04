@@ -56,6 +56,8 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
        else:
          generated_words.append(itos[predicted_numeric-3])
        generated.append(torch.LongTensor([predicted_numeric]).cuda())
+
+
  
  def discriminivativeDecoding(input_sentence, subreddit1, subreddit2):
     input = read.encode_sentence(input_sentence, stoi)
@@ -92,6 +94,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
 
        predicted = predicted.data.cpu().view(len(generated), topk).numpy()
        probabilities = probabilities.data.cpu().view(len(generated), topk).numpy()
+
 
        newVersions = []
        for j in range(len(generated)):
@@ -180,6 +183,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
  encoder_optimizer = None
  decoder_optimizer = None
  embeddings_optimizer = None
+ subreddit_embeddings_optimizer = None
  
  optimizer = "Adam"
  
@@ -188,11 +192,14 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
      encoder_optimizer = torch.optim.Adam(encoder.parameters(), lr = learning_rate)
      decoder_optimizer = torch.optim.Adam(decoder.parameters(), lr = learning_rate)
      embeddings_optimizer = torch.optim.Adam(embeddings.parameters(), lr = learning_rate)
+     subreddit_embeddings_optimizer = torch.optim.Adam(subreddit_embeddings.parameters(), lr = learning_rate)
+
  else:
      encoder_optimizer = torch.optim.SGD(encoder.parameters(), lr = learning_rate)
      decoder_optimizer = torch.optim.SGD(decoder.parameters(), lr = learning_rate)
      embeddings_optimizer = torch.optim.SGD(embeddings.parameters(), lr = learning_rate)
- 
+     subreddit_embeddings_optimizer = torch.optim.SGD(subreddit_embeddings.parameters(), lr = learning_rate)
+
  lossModule = torch.nn.NLLLoss(ignore_index=0)
  lossModuleNoAverage = torch.nn.NLLLoss(size_average=False, ignore_index=0)
 
@@ -208,7 +215,8 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
    encoder_optimizer.load_state_dict(checkpoint["encoder_optimizer"])
    decoder_optimizer.load_state_dict(checkpoint["decoder_optimizer"])
    embeddings_optimizer.load_state_dict(checkpoint["embeddings_optimizer"])
-             
+   subreddit_embeddings_optimizer.load_state_dict(checkpoint["subreddit_embeddings_optimizer"])
+            
 
 
  devLosses = []
@@ -235,7 +243,8 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       encoder_optimizer.zero_grad()
       decoder_optimizer.zero_grad()
       embeddings_optimizer.zero_grad()
-   
+      subreddit_embeddings_optimizer.zero_grad()
+  
 
       context_sentence = collectAndPadInput(current, parent_index)
       response_sentence = collectAndPadInput(current, comment_index)
@@ -261,22 +270,50 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       encoder_optimizer.step()
       decoder_optimizer.step()
       embeddings_optimizer.step()
-   
+      if not args.freeze_subreddit_embeddings:
+          subreddit_embeddings_optimizer.step()
+  
    
       if steps % 1000 == 0: # 
+#          encoder.train(False)
+#          decoder.train(False)
+
           print((epoch,steps,crossEntropy))
           print(devLosses)
           print("worldnews")
           print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+ 
           print("funny")
           print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+
+
           print("gaming")
           print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+
 
           print("worldnews")
           print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "worldnews", "funny"))
           print("funny")
           print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "funny", "worldnews"))
+
+#          encoder.train(True)
+#          decoder.train(True)
+
 
           # save current model
 #          quit()
@@ -286,6 +323,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
 
    # At the end of every epoch, we run on the development partition and record the log-likelihood. As soon as it drops, we stop training
    print("Running on dev")
+   print(args)
    encoder.train(False)
    decoder.train(False)
    steps = 0
@@ -318,7 +356,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
        return
 
    if args.save_to is not None:
-      torch.save({"subreddit_embeddings" : subreddit_embeddings.state_dict(), "embeddings" : embeddings.state_dict(), "encoder" : encoder.state_dict(), "decoder" : decoder.state_dict(), "encoder_optimizer" : encoder_optimizer.state_dict(), "decoder_optimizer" : decoder_optimizer.state_dict(),"embeddings_optimizer" : embeddings_optimizer.state_dict()}, "data/checkpoints/"+args.save_to+".pth.tar")
+      torch.save({"subreddit_embeddings_optimizer" : subreddit_embeddings_optimizer.state_dict(), "subreddit_embeddings" : subreddit_embeddings.state_dict(), "embeddings" : embeddings.state_dict(), "encoder" : encoder.state_dict(), "decoder" : decoder.state_dict(), "encoder_optimizer" : encoder_optimizer.state_dict(), "decoder_optimizer" : decoder_optimizer.state_dict(),"embeddings_optimizer" : embeddings_optimizer.state_dict()}, "data/checkpoints/"+args.save_to+".pth.tar")
 
 
 #def train_example(input, output, encoder, decoder, encoder_optimizer, decoder_optimizer, params, loss_fn):

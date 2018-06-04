@@ -225,7 +225,57 @@ def readTrainingAndDevData(stoi):
   return training_data, held_out_data  
 
 
-def readTrainingAndDevDataTokenized(stoi):
+
+def readTrainingAndDevDataTokenized(stoi, bound=None):
+   training_data = []
+   
+   comment_index = keys.index("comment")
+   parent_index = keys.index("parent_comment")
+   subreddit_index = keys.index("subreddit")
+   author_index = keys.index("author")
+   
+   counter = 0
+   with open("data/processed/tokenized-all-shuffled-train.txt", "r") as outFile:
+     for line in outFile:
+       counter += 1
+       if counter % 10000 == 0:
+           print(counter) 
+ 
+       line = line.strip().split(" ")
+       dataPoint = [None for _ in keys]
+       dataPoint[subreddit_index] = line[0]
+       dataPoint[author_index] = line[1]
+       parentStart = line.index("__PARENT__")
+       dataPoint[comment_index] = encode_sentence(line[2:parentStart], stoi)
+       dataPoint[parent_index] = encode_sentence(line[parentStart+1:], stoi)
+
+       training_data.append(dataPoint)
+
+   held_out_data = []
+   with open("data/processed/tokenized-all-shuffled-dev.txt", "r") as outFile:
+     for line in outFile:
+       counter += 1
+       if counter % 10000 == 0:
+           print(counter) 
+ 
+       line = line.strip().split(" ")
+       dataPoint = [None for _ in keys]
+       dataPoint[subreddit_index] = line[0]
+       dataPoint[author_index] = line[1]
+       parentStart = line.index("__PARENT__")
+       dataPoint[comment_index] = encode_sentence(line[2:parentStart], stoi)
+       dataPoint[parent_index] = encode_sentence(line[parentStart+1:], stoi)
+
+       held_out_data.append(dataPoint)
+   assert len(training_data) > 0
+   assert len(held_out_data) > 0
+
+ 
+   return training_data, held_out_data  
+ 
+
+
+def readTrainingAndDevDataTokenizedOld(stoi):
    training_data = []
    
    comment_index = keys.index("comment")

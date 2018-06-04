@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--load-from", dest="load_from", type=str)
 parser.add_argument("--save-to", dest="save_to", type=str)
 parser.add_argument("--attention")
+parser.add_argument("--freeze-subreddit-embeddings", dest="freeze_subreddit_embeddings")
 args=parser.parse_args()
 print(args)
 
