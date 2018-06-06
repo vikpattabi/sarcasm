@@ -66,7 +66,9 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
     subreddit1 = torch.LongTensor([stoi_subreddits.get(subreddit1, -1)+1]).cuda()
     subreddit2 = torch.LongTensor([stoi_subreddits.get(subreddit2, -1)+1]).cuda()
    
-    beamSize = 1
+    beamSize = 10
+
+    sampling= True
 
     finished = []
     generated = [[(0, 0.0, False)]]
@@ -74,13 +76,14 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
     hidden2 = hidden
     while len(generated) > 0:
        input = torch.LongTensor([x[-1][0] for x in generated]).view(1,-1).cuda()
+       encoder_outputs_expanded = encoder_outputs.expand(-1,len(generated), -1)
        if not useAttention:
           output, hidden = decoder.forward(input, hidden, subreddits=subreddit1)
           output2, hidden2 = decoder.forward(input, hidden2, subreddits=subreddit2)
        else:
-          output, hidden, attention = decoder.forward(input.view(1,1), hidden, encoder_outputs=encoder_outputs, subreddits=subreddit1)
-          output2, hidden2, attention2 = decoder.forward(input.view(1,1), hidden2, encoder_outputs=encoder_outputs, subreddits=subreddit2)
-          print(attention[0].view(-1).data.cpu().numpy()[:])
+          output, hidden, attention = decoder.forward(input, hidden, encoder_outputs=encoder_outputs_expanded, subreddits=subreddit1)
+          output2, hidden2, attention2 = decoder.forward(input, hidden2, encoder_outputs=encoder_outputs_expanded, subreddits=subreddit2)
+#          print(attention[0].view(-1).data.cpu().numpy()[:])
 
 #       if len(generated) == 1:
 #          hidden = hidden.expand(1, beamSize-len(finished), 200).contiguous()
@@ -89,7 +92,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
        hiddenStates = [hidden.squeeze(0)[j] for j in range(len(generated))]
        hiddenStates2 = [hidden2.squeeze(0)[j] for j in range(len(generated))]
 
-       topk = beamSize+3 if len(generated) == 1 else 3
+       topk = beamSize+3 if len(generated) == 1 else (10 if sampling else 3)
        probabilities, predicted = torch.topk(output, topk, dim=2) # output2
 
        predicted = predicted.data.cpu().view(len(generated), topk).numpy()
@@ -102,8 +105,10 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
             if predicted[j][i] != 2 and predicted[j][i] != quotation_mark_index:
                newVersions.append((generated[j] + [(predicted[j][i], probabilities[j][i] + generated[j][-1][1], generated[j][-1][2])], j    ))
 
-       newVersions = sorted(newVersions, key=lambda x:x[0][-1][1], reverse=True)
-#       random.shuffle(newVersions)
+       if not sampling:
+          newVersions = sorted(newVersions, key=lambda x:x[0][-1][1], reverse=True)
+       else:
+          random.shuffle(newVersions)
 
 
 

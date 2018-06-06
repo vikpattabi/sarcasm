@@ -6,11 +6,17 @@ from data import read
 
 import argparse
 
+from user_info import visualize_embeddings 
+
+
+visualize_embeddings.trainSubredditEmbeddings(loadFromFile=True)
+quit()
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--load-from", dest="load_from", type=str)
 parser.add_argument("--save-to", dest="save_to", type=str)
-parser.add_argument("--attention")
-parser.add_argument("--freeze-subreddit-embeddings", dest="freeze_subreddit_embeddings")
+parser.add_argument("--attention", action='store_true')
+parser.add_argument("--freeze-subreddit-embeddings", dest="freeze_subreddit_embeddings", action='store_true')
 args=parser.parse_args()
 print(args)
 

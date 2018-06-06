@@ -167,24 +167,26 @@ def readProcessedTrainingDataOld():
 
 import random
 
-def loadGloveEmbeddings(stoi, offset=3):
+def loadGloveEmbeddings(stoi, offset=3, itos=None):
    embeddings = [None for _ in range(offset)] + [None for _ in stoi]
    zipFile = zipfile.ZipFile("data/embeddings/glove.6B.zip", "r")
    counter = 0
    with zipFile.open("glove.6B.100d.txt", "r") as inFile:
       for line in inFile:
           counter += 1
-          if counter % 50000 == 0:
-              break
-              print(counter)
+ #         if counter % 50000 == 0:
+ #             break
+ #             print(counter)
           line = line.decode("utf8").split(" ")
           word = line[0]
-          embedding = list(map(float,line[1:]))
           entry = stoi.get(word, None)
           if entry is not None:
+             embedding = list(map(float,line[1:]))
              embeddings[entry+offset] = embedding
    for i in range(len(embeddings)):
        if embeddings[i] is None:
+          if itos is not None:
+            print(itos[i])
           embeddings[i] = [random.uniform(-0.01, 0.01) for _ in range(100)]
    return embeddings
 
@@ -197,7 +199,7 @@ def encode_token(token, stoi):
    else:
       return 2
 
-maximumAllowedLength = 40
+maximumAllowedLength = 20
 
 def encode_sentence(sentence, stoi):
    sentence = sentence[:maximumAllowedLength]
