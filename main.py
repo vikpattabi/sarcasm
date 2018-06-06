@@ -103,5 +103,3 @@ def collectAuthors():
     #print(itos_authors)
     stoi_authors = dict([(itos_authors[i], i) for i in range(len(itos_authors))])
     #print("\n".join(itos_authors))
-    
- 
