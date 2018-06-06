@@ -221,7 +221,52 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
    decoder_optimizer.load_state_dict(checkpoint["decoder_optimizer"])
    embeddings_optimizer.load_state_dict(checkpoint["embeddings_optimizer"])
    subreddit_embeddings_optimizer.load_state_dict(checkpoint["subreddit_embeddings_optimizer"])
-            
+
+
+
+ if args.only_generate:
+     for _ in range(10): 
+          print("worldnews")
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "worldnews"))
+ 
+          print("funny")
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "funny"))
+
+
+          print("gaming")
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+          print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+#          encoder.train(True)
+#          decoder.train(True)
+
+
+
+          encoder.train(False)
+          decoder.train(False)
+
+          print("worldnews")
+          print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "worldnews", "funny"))
+          print("funny")
+          print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "funny", "worldnews"))
+
+          encoder.train(True)
+          decoder.train(True)
+
+     return None           
 
 
  devLosses = []
@@ -309,15 +354,21 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
           print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
           print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
           print(predictFromInput(["This", "article", "is", "awesome", "."], "gaming"))
+#          encoder.train(True)
+#          decoder.train(True)
 
+
+
+          encoder.train(False)
+          decoder.train(False)
 
           print("worldnews")
           print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "worldnews", "funny"))
           print("funny")
           print(discriminivativeDecoding(["This", "article", "is", "awesome", "."], "funny", "worldnews"))
 
-#          encoder.train(True)
-#          decoder.train(True)
+          encoder.train(True)
+          decoder.train(True)
 
 
           # save current model
