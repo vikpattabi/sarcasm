@@ -41,41 +41,41 @@ def bleu(stats):
 
 # , subreddit_embeddings=None, stoi_subreddits=None, itos_subreddits=None
 def run_test(test_data, encoder, decoder, embeddings, stoi=None, itos=None, subreddit_embeddings=None, itos_subreddits=None, stoi_subreddits=None, useAttention=False):
- net_bleu = 0.0
- num_samples_tested = 0
+    net_bleu = 0.0
+    num_samples_tested = 0
 
- quotation_mark_index = stoi.get('"', -1) + 3
+    quotation_mark_index = stoi.get('"', -1) + 3
 
- def predictFromInput(input_sentence, subreddit):
-    input = read.encode_sentence(input_sentence, stoi)
+    def predictFromInput(input_sentence, subreddit):
+        input = read.encode_sentence(input_sentence, stoi)
 
-    encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
-    subreddit = torch.LongTensor([stoi_subreddits.get(subreddit, -1)+1]).cuda()
+        encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
+        subreddit = torch.LongTensor([stoi_subreddits.get(subreddit, -1)+1]).cuda()
 
-    generated = [torch.LongTensor([0]).cuda()]
-    generated_words = []
-    while True:
-       input = generated[-1]
-       if not useAttention:
-          output, hidden = decoder.forward(input, hidden, subreddits=subreddit)
-       else:
-          output, hidden, attention = decoder.forward(input.view(1,1), hidden, encoder_outputs=encoder_outputs, subreddits=subreddit)
-          print(attention[0].view(-1).data.cpu().numpy()[:])
-       _, predicted = torch.topk(output, 3, dim=2)
-       predicted = predicted.data.cpu().view(3).numpy()
-       for i in range(3):
-          if predicted[i] != 2 and predicted[i] != quotation_mark_index:
-            predicted = predicted[i]
-            break
+        generated = [torch.LongTensor([0]).cuda()]
+        generated_words = []
+        while True:
+           input = generated[-1]
+           if not useAttention:
+              output, hidden = decoder.forward(input, hidden, subreddits=subreddit)
+           else:
+              output, hidden, attention = decoder.forward(input.view(1,1), hidden, encoder_outputs=encoder_outputs, subreddits=subreddit)
+              print(attention[0].view(-1).data.cpu().numpy()[:])
+           _, predicted = torch.topk(output, 3, dim=2)
+           predicted = predicted.data.cpu().view(3).numpy()
+           for i in range(3):
+              if predicted[i] != 2 and predicted[i] != quotation_mark_index:
+                predicted = predicted[i]
+                break
 
-       predicted_numeric = predicted
-       if predicted_numeric == 1 or predicted_numeric == 0 or len(generated_words) > 100:
-          return " ".join(generated_words)
-       elif predicted_numeric ==2:
-         generated_words.append("OOV")
-       else:
-         generated_words.append(itos[predicted_numeric-3])
-       generated.append(torch.LongTensor([predicted_numeric]).cuda())
+           predicted_numeric = predicted
+           if predicted_numeric == 1 or predicted_numeric == 0 or len(generated_words) > 100:
+              return " ".join(generated_words)
+           elif predicted_numeric ==2:
+             generated_words.append("OOV")
+           else:
+             generated_words.append(itos[predicted_numeric-3])
+           generated.append(torch.LongTensor([predicted_numeric]).cuda())
 
     for sample in test_data:
        parent_comment = []
