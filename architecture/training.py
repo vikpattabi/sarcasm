@@ -2,6 +2,8 @@ import random
 import torch
 #from utils import START_TOKEN, END_TOKEN
 
+import torch.distributions as dis
+
 from data import read
 
 def collectAndPadInput(current, index):
@@ -60,6 +62,93 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
 
  
  def discriminivativeDecoding(input_sentence, subreddit1, subreddit2):
+    input = read.encode_sentence(input_sentence, stoi)
+    
+    encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
+    subreddit1 = torch.LongTensor([stoi_subreddits.get(subreddit1, -1)+1]).cuda()
+   
+    beamSize = 10
+
+    sampling= False
+
+    groups = 10
+
+    finished = [] 
+    generated = [[[(0, 0.0, False)]] for _ in range(groups)]
+    hidden = [hidden for _ in range(groups)]
+    allHaveFinished = [False for _ in range(groups)]
+    while len(generated) > 0:
+      if all(allHaveFinished):
+          break
+      for group in range(groups):
+       if allHaveFinished[group]:
+          continue
+#       print(generated[group])
+       input = torch.LongTensor([x[-1][0] for x in generated[group]]).view(1,-1).cuda()
+       encoder_outputs_expanded = encoder_outputs.expand(-1,len(generated[group]), -1)
+       output, hidden[group] = decoder.forward(input, hidden[group], subreddits=subreddit1)
+
+ #      print(output)
+
+
+       hiddenStates = [hidden[group].squeeze(0)[j] for j in range(len(generated[group]))]
+
+
+
+       topk = beamSize+3 if len(generated[group]) == 1 else (10 if sampling else 3)
+       probabilities, predicted = torch.topk(output, topk, dim=2) # output2
+
+
+       predicted = predicted.data.cpu().view(len(generated[group]), topk).numpy()
+       probabilities = probabilities.data.cpu().view(len(generated[group]), topk).numpy()
+
+
+       newVersions = []
+       for j in range(len(generated[group])):
+         for i in range(topk):
+            if predicted[j][i] != 2 and predicted[j][i] != quotation_mark_index:
+               newVersions.append((generated[group][j] + [(predicted[j][i], probabilities[j][i] + generated[group][j][-1][1], generated[group][j][-1][2])], j    ))
+
+       if not sampling:
+          newVersions = sorted(newVersions, key=lambda x:x[0][-1][1], reverse=True)
+       else:
+          random.shuffle(newVersions)
+
+
+       generated[group] = [x[0] for x in newVersions[:(beamSize - len(finished))]]
+
+       allHaveFinished[group] = True
+       assert len(generated[group]) + len(finished) <= beamSize
+       for j in range(len(generated[group])):
+           assert j < len(generated[group])
+           assert len(generated[group][j]) > 1
+           assert len(generated[group][j][-1]) > 1
+           if not (generated[group][j][-1][0] == 1 or generated[group][j][-1][0] == 0 or len(generated[group][j]) > 100):
+               allHaveFinished[group]=False
+           else:
+               finished.append(generated[group][j])
+               generated[group][j] = False
+       if not allHaveFinished[group]:
+         hidden[group] = torch.cat([hiddenStates[newVersions[i][1]].unsqueeze(0) for i in range(len(generated[group])) if generated[group][i] is not False], dim=0).unsqueeze(0)
+
+       generated[group] = [x for x in generated[group] if x is not False]
+
+
+
+    
+    for j in range(len(finished)):
+        string = ""
+        for word in finished[j][1:]:
+#            print(word)
+            if word[0] == 1 or word[0] == 0:
+                break
+            string+=" "+itos[word[0]-3]
+        print(string)
+        print(finished[j][-1][1])
+    return "" 
+
+
+ def discriminivativeDecodingDouble(input_sentence, subreddit1, subreddit2):
     input = read.encode_sentence(input_sentence, stoi)
     
     encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
@@ -183,6 +272,9 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
 #    generated.append(torch.LongTensor([predicted_numeric]).cuda())
 
     return "" 
+ 
+
+
  
 
  encoder_optimizer = None
@@ -322,8 +414,24 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       embeddings_optimizer.step()
       if not args.freeze_subreddit_embeddings:
           subreddit_embeddings_optimizer.step()
-  
-   
+ 
+#      for dataPoint in current:
+#         if dataPoint[subreddit_index] in ["worldnews", "funny", "gaming"]: 
+#            print("-------------------")
+#            print(dataPoint[subreddit_index])
+#            context_sentence = collectAndPadInput([dataPoint], parent_index)
+#            response_sentence = collectAndPadInput([dataPoint], comment_index)
+#            parent = [itos[x-3] if x > 2 else "OOV" for x in dataPoint[parent_index][1:-1]]
+#            print(" ".join(parent))
+#            print(" ".join([itos[x-3] if x > 2 else "OOV" for x in dataPoint[comment_index][1:-1]]))
+#            print("")
+#            print(predictFromInput(parent, dataPoint[subreddit_index]))
+#            print(predictFromInput(parent, dataPoint[subreddit_index]))
+#            print(predictFromInput(parent, dataPoint[subreddit_index]))
+#            print(predictFromInput(parent, dataPoint[subreddit_index]))
+#            print(predictFromInput(parent, dataPoint[subreddit_index]))
+
+       
       if steps % 1000 == 0: # 
 #          encoder.train(False)
 #          decoder.train(False)
@@ -370,7 +478,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
           encoder.train(True)
           decoder.train(True)
 
-
+          
           # save current model
 #          quit()
 
