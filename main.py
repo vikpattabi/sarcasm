@@ -6,11 +6,18 @@ from data import read
 
 import argparse
 
+from user_info import visualize_embeddings 
+
+
+#visualize_embeddings.trainSubredditEmbeddings(loadFromFile=True)
+#quit()
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--load-from", dest="load_from", type=str)
 parser.add_argument("--save-to", dest="save_to", type=str)
-parser.add_argument("--attention")
-parser.add_argument("--freeze-subreddit-embeddings", dest="freeze_subreddit_embeddings")
+parser.add_argument("--attention", action='store_true')
+parser.add_argument("--freeze-subreddit-embeddings", dest="freeze_subreddit_embeddings", action='store_true')
+parser.add_argument("--only-generate", dest="only_generate", action='store_true')
 args=parser.parse_args()
 print(args)
 
@@ -31,11 +38,14 @@ from architecture import model
 itos, stoi = read.createVocabulary(vocab_size=10000) # restrict to 10000 most frequent words
 print("Read dictionary")
 
-# Reading the data that we have extracted to far
-print("Now reading training data")
-training_data, held_out_data = read.readTrainingAndDevDataTokenized(stoi)
-print("Read training data.")
-print("Length of training set "+str(len(training_data)))
+if not args.only_generate:
+   # Reading the data that we have extracted to far
+   print("Now reading training data")
+   training_data, held_out_data = read.readTrainingAndDevDataTokenized(stoi)
+   print("Read training data.")
+   print("Length of training set "+str(len(training_data)))
+else:
+   training_data, held_out_data = None, None
 
 from architecture import training
 import random
@@ -61,7 +71,6 @@ if useAttention:
   decoder = model.attentionDecoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3, subreddit_embeddings=subreddit_embeddings).cuda()
 else:
   decoder = model.decoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3, subreddit_embeddings=subreddit_embeddings).cuda()
-
 
 
 training.run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=128, learning_rate=0.001, optimizer="Adam", useAttention=useAttention, stoi=stoi, itos=itos, subreddit_embeddings=subreddit_embeddings, itos_subreddits=itos_subreddits, stoi_subreddits=stoi_subreddits, args=args)
