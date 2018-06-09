@@ -231,7 +231,7 @@ def readTrainingAndDevData(stoi):
 
 
 
-def readTrainingAndDevDataTokenizedPartition(stoi, partition, bound=None):
+def readTrainingAndDevDataTokenizedPartition(stoi, partition, bound=None, shuffle=True):
    partition_data = []
 
    assert partition in ["train", "dev", "test"]
@@ -258,6 +258,10 @@ def readTrainingAndDevDataTokenizedPartition(stoi, partition, bound=None):
 
        partition_data.append(dataPoint)
    assert len(partition_data) > 0
+
+   if shuffle:
+     random.shuffle(partition_data)
+
    return partition_data
  
 

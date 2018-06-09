@@ -1,8 +1,8 @@
-# python main.py --load-from full-plain --run-test
+# python main.py --load-from full-plain --run-test --bleu-only
 # python main.py --ignore-context --save-to noContext
 # python main.py --ignore-subreddit --save-to noSubreddit
-# python main.py --ignore-context --ignore-subreddit --save-to noSubredditNoContext
-# python main.py --save-to replication 
+# python main.py --ignore-context --ignore-subreddit --save-to noSubredditNoContext --load-from noSubredditNoContext
+# python main.py --save-to replication
 
 
 
@@ -30,6 +30,8 @@ parser.add_argument("--only-generate", dest="only_generate", action='store_true'
 parser.add_argument("--run-test", dest="run_test", action='store_true')
 parser.add_argument("--ignore-context", dest="ignore_context", action='store_true')
 parser.add_argument("--ignore-subreddit", dest="ignore_subreddit", action='store_true')
+parser.add_argument("--bleu-only", dest="bleu_only", action='store_true')
+
 args=parser.parse_args()
 print(args)
 
