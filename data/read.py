@@ -231,7 +231,7 @@ def readTrainingAndDevData(stoi):
 
 
 
-def readTrainingAndDevDataTokenizedPartition(stoi, partition, bound=None, shuffle=True):
+def readTrainingAndDevDataTokenizedPartition(stoi, partition, bound=None, shuffle=True, preserveOriginalData=False):
    partition_data = []
 
    assert partition in ["train", "dev", "test"]
@@ -255,6 +255,10 @@ def readTrainingAndDevDataTokenizedPartition(stoi, partition, bound=None, shuffl
        parentStart = line.index("__PARENT__")
        dataPoint[comment_index] = encode_sentence(line[2:parentStart], stoi)
        dataPoint[parent_index] = encode_sentence(line[parentStart+1:], stoi)
+
+       if preserveOriginalData:
+          dataPoint.append(line[parentStart+1:])
+          dataPoint.append(line[2:parentStart])
 
        partition_data.append(dataPoint)
    assert len(partition_data) > 0

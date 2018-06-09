@@ -31,6 +31,7 @@ parser.add_argument("--run-test", dest="run_test", action='store_true')
 parser.add_argument("--ignore-context", dest="ignore_context", action='store_true')
 parser.add_argument("--ignore-subreddit", dest="ignore_subreddit", action='store_true')
 parser.add_argument("--bleu-only", dest="bleu_only", action='store_true')
+parser.add_argument("--prepare-human", dest="prepare_human", action='store_true')
 
 args=parser.parse_args()
 print(args)
@@ -62,7 +63,7 @@ if not args.only_generate and not args.run_test:
    print("Read training data.")
    print("Length of training set "+str(len(training_data)))
 elif args.run_test:
-   test_data = read.readTrainingAndDevDataTokenizedPartition(stoi, "dev")
+   test_data = read.readTrainingAndDevDataTokenizedPartition(stoi, "test", preserveOriginalData=True, shuffle=False)
    print("Read test data.")
    print("Length of test set "+str(len(test_data)))
 

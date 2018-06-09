@@ -1,6 +1,6 @@
 import torch
 #from utils import START_TOKEN, END_TOKEN
-
+import json
 from data import read
 
 # Contains functions for evaluating our results, using both the BLEU metric and hand-evaluation.
@@ -13,6 +13,15 @@ subreddit_index = read.keys.index("subreddit")
 
 from collections import Counter
 import math
+
+def prettyPrint(words):
+   sentence = words[0]
+   for i, word in enumerate(words[1:]):
+      if word not in [".", ",", "?", '"', ";", "-", "'nt", "'re", "'s", ")", "'ll", "'m", "!", "n't"] and words[i] not in ["(", '"', "-"] and not (word == "ta" and words[i] == "got") and not (word == "all" and words[i] == "y"):
+        sentence += " "
+      sentence += word
+   return sentence
+   
 
 def bleu_stats(hypothesis, reference):
     """Compute statistics for BLEU."""
@@ -49,7 +58,11 @@ def run_test(test_data, encoder, decoder, embeddings, useAttention=False, stoi=N
 
     quotation_mark_index = stoi.get('"', -1) + 3
 
-    def predictFromInput(input_sentence, subreddit):
+    if args.prepare_human:
+       realResponses = []
+       generatedResponses = []
+
+    def predictFromInput(input_sentence, subreddit, concatenate=True):
         input = read.encode_sentence(input_sentence, stoi)
 
         encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
@@ -73,7 +86,10 @@ def run_test(test_data, encoder, decoder, embeddings, useAttention=False, stoi=N
 
            predicted_numeric = predicted
            if predicted_numeric == 1 or predicted_numeric == 0 or len(generated_words) > 100:
-              return " ".join(generated_words)
+              if concatenate:
+                 return " ".join(generated_words)
+              else:
+                 return generated_words
            elif predicted_numeric == 2:
              generated_words.append("OOV")
            else:
@@ -287,8 +303,15 @@ def run_test(test_data, encoder, decoder, embeddings, useAttention=False, stoi=N
 
     counter = 0
     for sample in test_data:
+
+       if args.prepare_human and (len(sample[-2]) > 30 or len(sample[-1]) > 30):
+#          print("Skipping")
+          continue
+
+
+
        counter += 1
-       if counter % 100 == 0:
+       if not args.prepare_human and counter % 100 == 0:
          print(counter)
          print(float(net_bleu) / num_samples_tested)
        parent_comment = []
@@ -304,12 +327,35 @@ def run_test(test_data, encoder, decoder, embeddings, useAttention=False, stoi=N
            ground_truth_response.append(itos[word-3] if word > 2 else "OOV")
 
         
-       output = predictFromInput(original, subreddit)
-       
-       output = output.split(" ")
-       if not args.bleu_only:
+       output = predictFromInput(original, subreddit, concatenate=False)
+
+       original = sample[-2]
+       ground_truth_response = sample[-1]
+       if args.prepare_human:
+          originalProcessed = prettyPrint(original)
+          groundTruthProcessed = prettyPrint(ground_truth_response)
+          predictedProcessed = prettyPrint(output)
+          print("")
+          print(originalProcessed)
+          print(groundTruthProcessed)
+          print(predictedProcessed)
+
+
+          realResponses.append([originalProcessed, groundTruthProcessed, "real"])
+          generatedResponses.append([originalProcessed, predictedProcessed, "generated"])
+          
+          if len(realResponses) > 200:
+               print(json.dumps(realResponses))
+               print(json.dumps(generatedResponses))
+               return 
+       if not args.bleu_only and not args.prepare_human:
+#           output = 
+           print("----------")
+           print("----------")
            print(subreddit)
            print(original)
+           print(ground_truth_response)
+           print("----------")
            print(output)
            encoder.train(False)
            decoder.train(False)
@@ -332,7 +378,6 @@ def run_test(test_data, encoder, decoder, embeddings, useAttention=False, stoi=N
            encoder.train(True)
            decoder.train(True)
 
-           print(ground_truth_response)
        new_bleu = bleu(bleu_stats(output, ground_truth_response))
        net_bleu += new_bleu
        num_samples_tested += 1

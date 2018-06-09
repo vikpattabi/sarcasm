@@ -79,117 +79,48 @@ exp.imagesPreloaded = [];
     name : "dialogue",
     present : stimuli,
     present_handle : function(stim) {
-
       $(".err").hide();
-
-      exp.experiment_step = 0;
-
-
-      exp.sliderPost = null;
       this.stim = stim; //FRED: allows you to access stim in helpers
-     
-
-
-      $("context").html(stim[0]);
-      $("response").html(stim[1]);
-
-//      people = {'FEMALE' : [1, 3, 6], 'MALE' : [2, 4, 5]}
-//
-//      end = stim.context.length
-//      stim.context = stim.context.slice(end-10, end)
-//      
-//      genderLast = stim.gender_last
-//      genderPenultimate = stim.gender_penultimate
-//      if(stim.context.length % 2 == 0) { // last one will be "1"
-//         peopleEven = people[genderPenultimate]
-//         peopleOdd = people[genderLast]
-//      } else {
-//         peopleOdd = people[genderPenultimate]
-//         peopleEven = people[genderLast]
-//      }
-//      person1 = _.sample(peopleEven)
-//      person2 = sampleExcept(peopleOdd, function(p) { return p != person1; })
-//       $(".speaker_0").html('<img id="pngFrame" src="images/avatar'+person1+'.jpg" style="width:20px;">');
-//       $(".speaker_1").html('<img id="pngFrame" src="images/avatar'+person2+'.jpg" style="width:20px;">');
-//
-//
-//      for(var i=0; i< stim.context.length; i++) {
-//         stim.context[i] = stim.context[i].replace("<b>", "<u>")
-//         stim.context[i] = stim.context[i].replace("</b>", "</u>")
-//
-//         $(".turn_"+i).html(stim.context[i]);
-//      }
-
-// first pilot: 2/3 are redundant (correlation 0.95, also correlates with subjectivity) 
-
-      this.init_sliders(2);
-
-      $("#turn_rows").show()
+      console.log(stim);
+      document.getElementById("original").innerHTML= stim[0];
+      document.getElementById("response").innerHTML= stim[1];
     },
 
 
     button : function() {
-      if(exp.experiment_step == 0) {
-        // cut the last sentence to make sure things don't take up too much space
-        final_sentence = this.stim.context[this.stim.context.length-1]
-        // make sure the boldface thing is inside the section
-        final_sentence = (" "+final_sentence+" ").slice(0, final_sentence.indexOf("<u>")+70)
-        final_sentence = final_sentence.slice(0, final_sentence.lastIndexOf(" "))
-        final_sentence = final_sentence.slice(Math.max(0,final_sentence.length-95), final_sentence.length)
-        final_sentence = final_sentence.slice(final_sentence.indexOf(" ")+1, final_sentence.length)
-
-        $(".turn_"+(this.stim.context.length-1)).html(final_sentence);
-
-        for(var j=1; j<this.stim.context.length; j++) {
-         $("#turn_row_"+j).hide(); //.style.visibility = 'visible';// 'none' //hide();
-        }
-         $("#turn_row_"+(this.stim.context.length)).show(); //.style.visibility = 'visible';// 'none' //hide();
-
-        $("#dialogue_display").show();
-        exp.experiment_step ++;
-      } else {
-         for(i=0; i<exp.sliderPost.length; i++) {
-            if(exp.sliderPost[i] == undefined) {
-             $(".err").show();
-             return 0;
-            }
+         var pertinent = document.querySelector('input[name="pertinent"]:checked')
+         var sarcastic = document.querySelector('input[name="sarcastic"]:checked')
+         if(pertinent == null || sarcastic == null) {
+                $(".err").show();
+                return;
          }
+
          this.log_responses();
         _stream.apply(this); //use exp.go() if and only if there is no "present" data.
-      }
-
-//           if (exp.sliderPost != null) {
-//           } else {
-//             $(".err").show();
-//             return 0;
-//           }
-
     },
 
-    init_sliders : function(length) {
-      console.log("RESET SLIDER POST");
-      exp.sliderPost = []
-      for(var i = 0; i<length; i++) {
-       exp.sliderPost.push(undefined);
-       (function(){
-       var index = i+0.0
-       utils.make_slider("#slider0_dialogue_"+(i+1), function(event, ui) {
-        console.log("SLIDER "+index)
-        exp.sliderPost[index] = ui.value;
-        console.log(exp.sliderPost);
-      });
-        })();
-      }
-    },
     log_responses : function() {
-        console.log(exp.sliderPost);
+        var pertinent = document.querySelector('input[name="pertinent"]:checked')
+        var sarcastic = document.querySelector('input[name="sarcastic"]:checked')
+
         exp.data_trials.push({
-          "response" : exp.sliderPost,
-          "free_input" : $("#free_input").val(),
-          "item" : this.stim.item_id,
-          "adjective" : this.stim.adjective,
+          "original" : this.stim[0],
+          "response" : this.stim[1],
+          "type" : this.stim[2],
+          "pertinent" : pertinent.value,
+          "sarcastic" : sarcastic.value,
           "slide_number" : exp.phase
         });
+
+$("input:radio[name='pertinent']").each(function(i) {
+       this.checked = false;
+});
+
+$("input:radio[name='sarcastic']").each(function(i) {
+       this.checked = false;
+});
+
+
     },
   });
 
