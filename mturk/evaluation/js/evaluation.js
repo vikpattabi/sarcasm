@@ -194,8 +194,8 @@ repeatWorker = false;
     };
   //blocks of the experiment:
    exp.structure=[];
-// exp.structure.push('i0')
-//exp.structure.push( 'instructions1')
+ exp.structure.push('i0')
+exp.structure.push( 'instructions1')
    exp.structure.push('dialogue')
 
 exp.structure.push( 'subj_info')
