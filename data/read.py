@@ -194,7 +194,9 @@ def loadGloveEmbeddings(stoi, offset=3, itos=None):
 # 0 is Start-of-sentence (+ padding for minibatching), 1 is end-of-sentence, 2 is out-of-vocabulary
 def encode_token(token, stoi):
    token = token.lower()
-   if token in stoi:
+   if token == "OOV":
+      return 2
+   elif token in stoi:
       return stoi[token]+3
    else:
       return 2
@@ -226,6 +228,38 @@ def readTrainingAndDevData(stoi):
 
   return training_data, held_out_data  
 
+
+
+
+def readTrainingAndDevDataTokenizedPartition(stoi, partition, bound=None):
+   partition_data = []
+
+   assert partition in ["train", "dev", "test"]
+ 
+   comment_index = keys.index("comment")
+   parent_index = keys.index("parent_comment")
+   subreddit_index = keys.index("subreddit")
+   author_index = keys.index("author")
+   
+   counter = 0
+   with open("data/processed/tokenized-all-shuffled-"+partition+".txt", "r") as outFile:
+     for line in outFile:
+       counter += 1
+       if counter % 10000 == 0:
+           print(counter) 
+ 
+       line = line.strip().split(" ")
+       dataPoint = [None for _ in keys]
+       dataPoint[subreddit_index] = line[0]
+       dataPoint[author_index] = line[1]
+       parentStart = line.index("__PARENT__")
+       dataPoint[comment_index] = encode_sentence(line[2:parentStart], stoi)
+       dataPoint[parent_index] = encode_sentence(line[parentStart+1:], stoi)
+
+       partition_data.append(dataPoint)
+   assert len(partition_data) > 0
+   return partition_data
+ 
 
 
 def readTrainingAndDevDataTokenized(stoi, bound=None):

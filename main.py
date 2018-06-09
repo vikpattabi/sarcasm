@@ -1,3 +1,8 @@
+# python main.py --load-from full-plain --run-test
+
+
+
+
 from user_info import train_user_embeddings
 from user_info import train_embeddings
 
@@ -18,8 +23,12 @@ parser.add_argument("--save-to", dest="save_to", type=str)
 parser.add_argument("--attention", action='store_true')
 parser.add_argument("--freeze-subreddit-embeddings", dest="freeze_subreddit_embeddings", action='store_true')
 parser.add_argument("--only-generate", dest="only_generate", action='store_true')
+parser.add_argument("--run-test", dest="run_test", action='store_true')
 args=parser.parse_args()
 print(args)
+
+# for testing: python main.py --load-from full-plain --run-test
+
 
 # (1) for training subreddit embeddings:
 #train_embeddings.trainSubredditEmbeddings()
@@ -38,15 +47,22 @@ from architecture import model
 itos, stoi = read.createVocabulary(vocab_size=10000) # restrict to 10000 most frequent words
 print("Read dictionary")
 
-if not args.only_generate:
+if not args.only_generate and not args.run_test:
    # Reading the data that we have extracted to far
    print("Now reading training data")
    training_data, held_out_data = read.readTrainingAndDevDataTokenized(stoi)
    print("Read training data.")
    print("Length of training set "+str(len(training_data)))
+elif args.run_test:
+   test_data = read.readTrainingAndDevDataTokenizedPartition(stoi, "dev")
+   print("Read test data.")
+   print("Length of test set "+str(len(test_data)))
+
+   training_data, held_out_data = None, None
 else:
    training_data, held_out_data = None, None
 
+from architecture import test
 from architecture import training
 import random
 import torch
@@ -72,8 +88,10 @@ if useAttention:
 else:
   decoder = model.decoderRNN(hidden_size=200, embedding_size=100, embeddings=embeddings, vocab_size=10000+3, subreddit_embeddings=subreddit_embeddings).cuda()
 
-
-training.run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=128, learning_rate=0.001, optimizer="Adam", useAttention=useAttention, stoi=stoi, itos=itos, subreddit_embeddings=subreddit_embeddings, itos_subreddits=itos_subreddits, stoi_subreddits=stoi_subreddits, args=args)
+if args.run_test:
+   test.run_test(test_data, encoder, decoder, embeddings, useAttention=useAttention, stoi=stoi, itos=itos, subreddit_embeddings=subreddit_embeddings, itos_subreddits=itos_subreddits, stoi_subreddits=stoi_subreddits, args=args)
+else:
+   training.run_training_loop(training_data, held_out_data, encoder, decoder, embeddings, batchSize=128, learning_rate=0.001, optimizer="Adam", useAttention=useAttention, stoi=stoi, itos=itos, subreddit_embeddings=subreddit_embeddings, itos_subreddits=itos_subreddits, stoi_subreddits=stoi_subreddits, args=args)
 # , subreddit_embeddings=subreddit_embeddings, stoi_subreddits=stoi_subreddits, itos_subreddits=itos_subreddits
 
 
