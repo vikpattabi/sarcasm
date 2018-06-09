@@ -2,6 +2,8 @@ import random
 import torch
 #from utils import START_TOKEN, END_TOKEN
 
+from math import exp
+
 import torch.distributions as dis
 
 from data import read
@@ -31,8 +33,17 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
  def predictFromInput(input_sentence, subreddit):
     input = read.encode_sentence(input_sentence, stoi)
     
-    encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
-    subreddit = torch.LongTensor([stoi_subreddits.get(subreddit, -1)+1]).cuda()
+
+    if args.ignore_subreddit:
+       subreddit = torch.LongTensor([1]).cuda()
+    else:
+       subreddit = torch.LongTensor([stoi_subreddits.get(subreddit, -1)+1]).cuda()
+
+    if args.ignore_context:
+        hidden = None
+    else:
+        encoder_outputs, hidden = encoder.forward(torch.LongTensor(input).cuda(), None)
+
 
     generated = [torch.LongTensor([0]).cuda()]
     generated_words = []
@@ -71,7 +82,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
 
     sampling= False
 
-    groups = 10
+    groups = 1
 
     finished = [[] for _ in range(groups)] 
     generated = [[[(0, 0.0, False)]] for _ in range(groups)]
@@ -391,9 +402,15 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       context_sentence = collectAndPadInput(current, parent_index)
       response_sentence = collectAndPadInput(current, comment_index)
 
-      subreddits = torch.LongTensor([stoi_subreddits.get(x[subreddit_index], -1)+1 for x in current]).cuda()
+      if args.ignore_subreddit:
+         subreddits = torch.LongTensor([1 for _ in current]).cuda()
+      else:
+         subreddits = torch.LongTensor([stoi_subreddits.get(x[subreddit_index], -1)+1 for x in current]).cuda()
 
-      encoder_outputs, hidden = encoder.forward(torch.LongTensor(context_sentence).cuda(), None)
+      if args.ignore_context:
+          hidden = None
+      else:
+          encoder_outputs, hidden = encoder.forward(torch.LongTensor(context_sentence).cuda(), None)
 
       response = torch.LongTensor(response_sentence).cuda()
      
@@ -500,10 +517,23 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       numberOfWords += len(dataPoint[comment_index])-1
 
 
-      subreddits = torch.LongTensor([stoi_subreddits.get(x[subreddit_index], -1)+1 for x in [dataPoint]]).cuda()
 
 
-      encoder_outputs, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
+
+
+      if args.ignore_subreddit:
+         subreddits = torch.LongTensor([1]).cuda()
+      else:
+          subreddits = torch.LongTensor([stoi_subreddits.get(x[subreddit_index], -1)+1 for x in [dataPoint]]).cuda()
+
+      if args.ignore_context:
+          hidden = None
+      else:
+          encoder_outputs, hidden = encoder.forward(torch.LongTensor(dataPoint[parent_index]).cuda(), None)
+
+
+
+
       target = torch.LongTensor(dataPoint[comment_index][1:]).view(-1).cuda()
 
       if not useAttention:
@@ -515,7 +545,10 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       crossEntropy = 0.99 * crossEntropy + (1-0.99) * loss.data.cpu().numpy()
       totalLoss +=  loss.data.cpu().numpy()
    devLosses.append(totalLoss/numberOfWords)
+   print(args)
    print(devLosses)
+   print([exp(x) for x in devLosses])
+
    if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
        print("Overfitting, stop")
        return

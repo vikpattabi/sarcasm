@@ -1,4 +1,8 @@
 # python main.py --load-from full-plain --run-test
+# python main.py --ignore-context --save-to noContext
+# python main.py --ignore-subreddit --save-to noSubreddit
+# python main.py --ignore-context --ignore-subreddit --save-to noSubredditNoContext
+# python main.py --save-to replication 
 
 
 
@@ -24,6 +28,8 @@ parser.add_argument("--attention", action='store_true')
 parser.add_argument("--freeze-subreddit-embeddings", dest="freeze_subreddit_embeddings", action='store_true')
 parser.add_argument("--only-generate", dest="only_generate", action='store_true')
 parser.add_argument("--run-test", dest="run_test", action='store_true')
+parser.add_argument("--ignore-context", dest="ignore_context", action='store_true')
+parser.add_argument("--ignore-subreddit", dest="ignore_subreddit", action='store_true')
 args=parser.parse_args()
 print(args)
 
