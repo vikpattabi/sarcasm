@@ -73,7 +73,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
 
     groups = 10
 
-    finished = [] 
+    finished = [[] for _ in range(groups)] 
     generated = [[[(0, 0.0, False)]] for _ in range(groups)]
     hidden = [hidden for _ in range(groups)]
     allHaveFinished = [False for _ in range(groups)]
@@ -115,10 +115,10 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
           random.shuffle(newVersions)
 
 
-       generated[group] = [x[0] for x in newVersions[:(beamSize - len(finished))]]
+       generated[group] = [x[0] for x in newVersions[:(beamSize - len(finished[group]))]]
 
        allHaveFinished[group] = True
-       assert len(generated[group]) + len(finished) <= beamSize
+       assert len(generated[group]) + len(finished[group]) <= beamSize
        for j in range(len(generated[group])):
            assert j < len(generated[group])
            assert len(generated[group][j]) > 1
@@ -126,7 +126,7 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
            if not (generated[group][j][-1][0] == 1 or generated[group][j][-1][0] == 0 or len(generated[group][j]) > 100):
                allHaveFinished[group]=False
            else:
-               finished.append(generated[group][j])
+               finished[group].append(generated[group][j])
                generated[group][j] = False
        if not allHaveFinished[group]:
          hidden[group] = torch.cat([hiddenStates[newVersions[i][1]].unsqueeze(0) for i in range(len(generated[group])) if generated[group][i] is not False], dim=0).unsqueeze(0)
@@ -135,16 +135,16 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
 
 
 
-    
-    for j in range(len(finished)):
-        string = ""
-        for word in finished[j][1:]:
-#            print(word)
-            if word[0] == 1 or word[0] == 0:
-                break
-            string+=" "+itos[word[0]-3]
-        print(string)
-        print(finished[j][-1][1])
+    for group in range(groups): 
+      for j in range(len(finished)):
+          string = ""
+          for word in finished[group][j][1:]:
+  #            print(word)
+              if word[0] == 1 or word[0] == 0:
+                  break
+              string+=" "+itos[word[0]-3]
+          print(string)
+          print(finished[group][j][-1][1])
     return "" 
 
 
@@ -414,22 +414,23 @@ def run_training_loop(training_data, held_out_data, encoder, decoder, embeddings
       embeddings_optimizer.step()
       if not args.freeze_subreddit_embeddings:
           subreddit_embeddings_optimizer.step()
- 
-#      for dataPoint in current:
-#         if dataPoint[subreddit_index] in ["worldnews", "funny", "gaming"]: 
-#            print("-------------------")
-#            print(dataPoint[subreddit_index])
-#            context_sentence = collectAndPadInput([dataPoint], parent_index)
-#            response_sentence = collectAndPadInput([dataPoint], comment_index)
-#            parent = [itos[x-3] if x > 2 else "OOV" for x in dataPoint[parent_index][1:-1]]
-#            print(" ".join(parent))
-#            print(" ".join([itos[x-3] if x > 2 else "OOV" for x in dataPoint[comment_index][1:-1]]))
-#            print("")
-#            print(predictFromInput(parent, dataPoint[subreddit_index]))
-#            print(predictFromInput(parent, dataPoint[subreddit_index]))
-#            print(predictFromInput(parent, dataPoint[subreddit_index]))
-#            print(predictFromInput(parent, dataPoint[subreddit_index]))
-#            print(predictFromInput(parent, dataPoint[subreddit_index]))
+
+      if False: 
+         for dataPoint in current:
+            if dataPoint[subreddit_index] in ["worldnews", "funny", "gaming"]: 
+               print("-------------------")
+               print(dataPoint[subreddit_index])
+               context_sentence = collectAndPadInput([dataPoint], parent_index)
+               response_sentence = collectAndPadInput([dataPoint], comment_index)
+               parent = [itos[x-3] if x > 2 else "OOV" for x in dataPoint[parent_index][1:-1]]
+               print(" ".join(parent))
+               print(" ".join([itos[x-3] if x > 2 else "OOV" for x in dataPoint[comment_index][1:-1]]))
+               print("")
+               print(predictFromInput(parent, dataPoint[subreddit_index]))
+               print(predictFromInput(parent, dataPoint[subreddit_index]))
+               print(predictFromInput(parent, dataPoint[subreddit_index]))
+               print(predictFromInput(parent, dataPoint[subreddit_index]))
+               print(predictFromInput(parent, dataPoint[subreddit_index]))
 
        
       if steps % 1000 == 0: # 
