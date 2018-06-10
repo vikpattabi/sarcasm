@@ -14,6 +14,16 @@ subreddit_index = read.keys.index("subreddit")
 from collections import Counter
 import math
 
+def diversity(sents):
+   print(sents)
+   ngrams = set()
+   words = sum([len(x) for x in sents])
+   for sent in sents:
+      for i in range(len(sent)):
+        for j in range(i+1, len(sent)+1):
+           ngrams.add(str(sent[i:j]))
+   return len(ngrams)/float(words)
+
 def prettyPrint(words):
    sentence = words[0]
    for i, word in enumerate(words[1:]):
@@ -286,7 +296,7 @@ def run_test(test_data, encoder, decoder, embeddings, useAttention=False, stoi=N
        results = sorted(results, key=lambda x:x[1], reverse=True)
        for result in results:
           print(result[0])
-       return "" 
+       return [result[0].split(" ") for result in results]
 
 
 
@@ -298,6 +308,8 @@ def run_test(test_data, encoder, decoder, embeddings, useAttention=False, stoi=N
         encoder.load_state_dict(checkpoint["encoder"])
         decoder.load_state_dict(checkpoint["decoder"])
    
+    diversityFromDropout = 0 
+    diversityFromBeam = 0
 
 
 
@@ -364,19 +376,29 @@ def run_test(test_data, encoder, decoder, embeddings, useAttention=False, stoi=N
            encoder.train(True)
            decoder.train(True)
            print("Decoding with Dropout")
-           print(predictFromInput(original, subreddit))
-           print(predictFromInput(original, subreddit))
-           print(predictFromInput(original, subreddit))
-           print(predictFromInput(original, subreddit))
-           print(predictFromInput(original, subreddit))
-           print(predictFromInput(original, subreddit))
-           print(predictFromInput(original, subreddit))
+           fromDropout = [predictFromInput(original, subreddit, concatenate=False) for _ in range(10)]
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
+#           print(predictFromInput(original, subreddit))
            encoder.train(False)
            decoder.train(False)
            print("Diverse Decoding")
-           discriminivativeDecoding(original, subreddit)
+           fromDiverseBeam = discriminivativeDecoding(original, subreddit)
            encoder.train(True)
            decoder.train(True)
+
+           diversityFromDropout += diversity(fromDropout)
+           diversityFromBeam += diversity(fromDiverseBeam)
+           print(diversityFromDropout/counter)
+           print(diversityFromBeam/counter)
+
 
        new_bleu = bleu(bleu_stats(output, ground_truth_response))
        net_bleu += new_bleu

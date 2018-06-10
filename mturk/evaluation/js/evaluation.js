@@ -164,7 +164,7 @@ $("input:radio[name='sarcastic']").each(function(i) {
 function init() {
 repeatWorker = false;
   (function(){
-      var ut_id = "adj-order-preference";
+      var ut_id = "sarcasm-cs224u";
       if (UTWorkerLimitReached(ut_id)) {
         $('.slide').empty();
         repeatWorker = true;
