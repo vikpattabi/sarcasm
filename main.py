@@ -3,7 +3,7 @@
 # python main.py --ignore-subreddit --save-to noSubreddit
 # python main.py --ignore-context --ignore-subreddit --save-to noSubredditNoContext --load-from noSubredditNoContext
 # python main.py --save-to replication
-
+# python main.py --load-from noSubredditNoContext --run-test --prepare-human
 
 
 

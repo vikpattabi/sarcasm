@@ -57,9 +57,11 @@ if (!Array.prototype.includes) {
 
 createSBStimuli = function() {
   stims = [];
-  stimuliReal = _.sample(commentsReal, 25);
-  stimuliFullModel = _.sample(commentsFullModel, 25);
-  stimuli = stimuliReal.concat(stimuliFullModel);
+  stimuliReal = _.sample(commentsReal, 16);
+  stimuliFullModel = _.sample(commentsFullModel, 16);
+  stimuliBaseline = _.sample(commentsBaseline, 16);
+
+  stimuli = stimuliReal.concat(stimuliFullModel).concat(stimuliBaseline);
   stimuli = _.shuffle(stimuli)
   console.log(stimuli);
   return stimuli;
